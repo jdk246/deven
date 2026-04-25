@@ -108,9 +108,6 @@ export function LandingPage({
     <div className="min-h-screen text-white relative z-10">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 lg:py-16">
         <div className="text-center mb-8 sm:mb-12">
-          <div className="text-sm text-white/60 mb-4 sm:mb-6">
-            TrustTrace - validation {validationStatus}
-          </div>
           <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-4">
             <span className="bg-gradient-to-r from-white to-purple-200 bg-clip-text text-transparent">
               Humans get rugged.

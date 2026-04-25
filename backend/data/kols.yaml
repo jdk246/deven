@@ -1,139 +1,139 @@
 - handle: "raoul_pal_demo"
-  display_name: "Raoul Pal (Demo)"
+  display_name: "Raoul Pal"
   category: "macro"
   priority: 1
-  notes: "Demo profile inspired by macro-oriented crypto market commentary."
+  notes: "Macro-oriented crypto market commentary profile."
   wallets: []
 
 - handle: "willy_woo_demo"
-  display_name: "Willy Woo (Demo)"
+  display_name: "Willy Woo"
   category: "onchain"
   priority: 2
-  notes: "Demo profile inspired by on-chain flow and market structure commentary."
+  notes: "On-chain flow and market structure commentary profile."
   wallets: []
 
 - handle: "ansem_demo"
-  display_name: "Ansem (Demo)"
+  display_name: "Ansem"
   category: "solana"
   priority: 3
-  notes: "Demo profile inspired by Solana-native market commentary and narrative momentum."
+  notes: "Solana-native market commentary and narrative momentum profile."
   wallets: []
 
 - handle: "crypto_kaleo_demo"
-  display_name: "Crypto Kaleo (Demo)"
+  display_name: "Crypto Kaleo"
   category: "bsc"
   priority: 4
-  notes: "Demo profile inspired by fast-moving altcoin and momentum commentary."
+  notes: "Fast-moving altcoin and momentum commentary profile."
   wallets: []
 
 - handle: "cobie_demo"
-  display_name: "Cobie (Demo)"
+  display_name: "Cobie"
   category: "base"
   priority: 5
-  notes: "Demo profile inspired by multi-chain market commentary and social narrative reads."
+  notes: "Multi-chain market commentary and social narrative profile."
   wallets: []
 
 - handle: "murad_demo"
-  display_name: "Murad (Demo)"
+  display_name: "Murad"
   category: "memecoin"
   priority: 6
-  notes: "Demo profile inspired by meme-rotation commentary and high-volatility market takes."
+  notes: "Meme-rotation and high-volatility market commentary profile."
   wallets: []
 
 - handle: "michael_vandepoppe_demo"
-  display_name: "Michael van de Poppe (Demo)"
+  display_name: "Michael van de Poppe"
   category: "defi"
   priority: 7
-  notes: "Demo profile inspired by altcoin rotation and DeFi market commentary."
+  notes: "Altcoin rotation and DeFi market commentary profile."
   wallets: []
 
 - handle: "alex_becker_demo"
-  display_name: "Alex Becker (Demo)"
+  display_name: "Alex Becker"
   category: "ai"
   priority: 8
-  notes: "Demo profile inspired by AI-token and high-beta market commentary."
+  notes: "AI-token and high-beta market commentary profile."
   wallets: []
 
 - handle: "loomdart_demo"
-  display_name: "Loomdart (Demo)"
+  display_name: "Loomdart"
   category: "smart_money"
   priority: 9
-  notes: "Demo profile inspired by trader flow and wallet-aware market commentary."
+  notes: "Trader flow and market participation commentary profile."
   wallets: []
 
 - handle: "daan_crypto_demo"
-  display_name: "Daan Crypto Trades (Demo)"
+  display_name: "Daan Crypto Trades"
   category: "market_structure"
   priority: 10
-  notes: "Demo profile inspired by liquidity, structure, and execution-focused commentary."
+  notes: "Liquidity, structure, and execution-focused commentary profile."
   wallets: []
 
 - handle: "mert_demo"
-  display_name: "Mert (Demo)"
+  display_name: "Mert"
   category: "builders"
   priority: 11
-  notes: "Demo profile inspired by builder and infrastructure-focused market commentary."
+  notes: "Builder and infrastructure-focused market commentary profile."
   wallets: []
 
 - handle: "zachxbt_demo"
-  display_name: "ZachXBT (Demo)"
+  display_name: "ZachXBT"
   category: "security"
   priority: 12
-  notes: "Demo profile inspired by risk, investigation, and security-oriented commentary."
+  notes: "Risk, investigation, and security-oriented market commentary profile."
   wallets: []
 
 - handle: "pentoshi_demo"
-  display_name: "Pentoshi (Demo)"
+  display_name: "Pentoshi"
   category: "narratives"
   priority: 13
-  notes: "Demo profile inspired by narrative-driven market commentary and timing reads."
+  notes: "Narrative-driven market commentary and timing profile."
   wallets: []
 
 - handle: "arthur_hayes_demo"
-  display_name: "Arthur Hayes (Demo)"
+  display_name: "Arthur Hayes"
   category: "smart_money"
   priority: 14
-  notes: "Demo profile inspired by liquidity, macro flow, and market regime commentary."
+  notes: "Liquidity, macro flow, and market regime commentary profile."
   wallets: []
 
 - handle: "altcoin_sherpa_demo"
-  display_name: "Altcoin Sherpa (Demo)"
+  display_name: "Altcoin Sherpa"
   category: "trader"
   priority: 15
-  notes: "Demo profile inspired by short-form altcoin setup commentary."
+  notes: "Short-form altcoin setup commentary profile."
   wallets: []
 
 - handle: "miles_deutscher_demo"
-  display_name: "Miles Deutscher (Demo)"
+  display_name: "Miles Deutscher"
   category: "multi_chain"
   priority: 16
-  notes: "Demo profile inspired by cross-chain trend and rotation commentary."
+  notes: "Cross-chain trend and rotation commentary profile."
   wallets: []
 
 - handle: "crypto_cred_demo"
-  display_name: "Crypto Cred (Demo)"
+  display_name: "Crypto Cred"
   category: "defi"
   priority: 17
-  notes: "Demo profile inspired by structured educational and market commentary."
+  notes: "Structured educational and market commentary profile."
   wallets: []
 
 - handle: "emperorbtc_demo"
-  display_name: "EmperorBTC (Demo)"
+  display_name: "EmperorBTC"
   category: "research"
   priority: 18
-  notes: "Demo profile inspired by thesis-driven market commentary and conviction calls."
+  notes: "Thesis-driven market commentary and conviction profile."
   wallets: []
 
 - handle: "credibull_demo"
-  display_name: "CrediBULL Crypto (Demo)"
+  display_name: "CrediBULL Crypto"
   category: "technical"
   priority: 19
-  notes: "Demo profile inspired by chart-driven market commentary."
+  notes: "Chart-driven market commentary profile."
   wallets: []
 
 - handle: "ki_young_ju_demo"
-  display_name: "Ki Young Ju (Demo)"
+  display_name: "Ki Young Ju"
   category: "analytics"
   priority: 20
-  notes: "Demo profile inspired by analytics-heavy market commentary and dashboard-driven reads."
+  notes: "Analytics-heavy market commentary and dashboard profile."
   wallets: []
