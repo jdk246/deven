@@ -8,6 +8,7 @@ import { adaptKolDetail, adaptMarketDetail, adaptTokenAudit } from "./lib/adapte
 import { AppDataProvider, useAppData } from "./lib/app-data";
 import { AllKOLsPage } from "./pages/AllKOLsPage";
 import { AllMarketsPage } from "./pages/AllMarketsPage";
+import { ApiDocsPage } from "./pages/ApiDocsPage";
 import { AssetInsightsPage } from "./pages/AssetInsightsPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { KOLProfilePage } from "./pages/KOLProfilePage";
@@ -198,6 +199,7 @@ function AppRoutes() {
                       calls={snapshot.feed}
                       kols={snapshot.kols}
                       assets={snapshot.assets}
+                      activeAlerts={snapshot.activeAlerts}
                       validationStatus={snapshot.validationStatus}
                     />
                   }
@@ -209,6 +211,16 @@ function AppRoutes() {
                 <Route path="/markets" element={<AllMarketsPage assets={snapshot.assets} />} />
                 <Route path="/kols" element={<AllKOLsPage kols={snapshot.kols} />} />
                 <Route path="/audit" element={<TokenAuditRoute />} />
+                <Route
+                  path="/api-docs"
+                  element={
+                    <ApiDocsPage
+                      agentMode={snapshot.agentMode}
+                      dataMode={snapshot.dataMode}
+                      openaiReady={snapshot.openaiReady}
+                    />
+                  }
+                />
                 <Route path="/kol/:handle" element={<KOLProfileRoute />} />
                 <Route path="/market/:chainId/:contractAddress" element={<AssetInsightsRoute />} />
                 <Route

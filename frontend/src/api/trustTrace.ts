@@ -431,6 +431,31 @@ export type AgentQueryResponse = {
   disclaimer: string;
 };
 
+export type AgentToolDescriptorResponse = {
+  name: string;
+  category: string;
+  description: string;
+  input_schema: Record<string, unknown>;
+  output_schema: Record<string, unknown>;
+};
+
+export type AgentToolListResponse = {
+  items: AgentToolDescriptorResponse[];
+};
+
+export type AgentExampleItemResponse = {
+  title: string;
+  description: string;
+  endpoint: string;
+  method: "GET" | "POST";
+  request_body: Record<string, unknown> | null;
+  expected_response_shape: Record<string, unknown>;
+};
+
+export type AgentExamplesResponse = {
+  items: AgentExampleItemResponse[];
+};
+
 async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${apiBaseUrl}${path}`, init);
 
@@ -516,4 +541,12 @@ export function queryAgent(payload: AgentQueryRequest): Promise<AgentQueryRespon
     },
     body: JSON.stringify(payload),
   });
+}
+
+export function fetchAgentTools(): Promise<AgentToolListResponse> {
+  return fetchJson<AgentToolListResponse>("/api/agent/tools");
+}
+
+export function fetchAgentExamples(): Promise<AgentExamplesResponse> {
+  return fetchJson<AgentExamplesResponse>("/api/agent/examples");
 }

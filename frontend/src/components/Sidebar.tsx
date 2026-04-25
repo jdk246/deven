@@ -1,4 +1,4 @@
-import { Home, Shield, TrendingUp, Settings, Activity, Users, Menu, X } from 'lucide-react';
+import { Home, Shield, TrendingUp, Settings, Activity, Users, Menu, X, FileCode2 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 
@@ -13,6 +13,7 @@ export function Sidebar() {
     { icon: TrendingUp, label: 'Markets', path: '/markets' },
     { icon: Users, label: 'KOLs', path: '/kols' },
     { icon: Shield, label: 'Audit', path: '/audit' },
+    { icon: FileCode2, label: 'API Docs', path: '/api-docs' },
   ];
 
   return (

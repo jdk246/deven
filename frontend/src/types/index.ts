@@ -80,6 +80,21 @@ export interface AssetData {
   updatedAt?: string | null;
 }
 
+export interface ActiveAlert {
+  id: string;
+  chainId: string;
+  chainName: string;
+  contractAddress: string;
+  symbol: string;
+  tokenName: string;
+  riskLevel?: AuditRiskLevel | null;
+  attentionScore?: number | null;
+  label?: string | null;
+  titles: string[];
+  triggeredCount: number;
+  updatedAt?: string | null;
+}
+
 export interface AuditCheck {
   id: string;
   label: string;
@@ -256,6 +271,7 @@ export interface AppSnapshot {
   availableChains: ChainInfo[];
   assets: Record<string, AssetData>;
   assetList: AssetData[];
+  activeAlerts: ActiveAlert[];
   kols: Record<string, KOL>;
   kolList: KOL[];
   feed: Call[];

@@ -14,6 +14,7 @@ import {
   fetchKOLFeed,
   fetchKOLRankings,
   fetchKOLs,
+  fetchTokenDetail,
   fetchTokenList,
   fetchTrendingTokens,
   fetchValidation,
@@ -54,6 +55,13 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
           fetchKOLFeed(40),
         ]);
 
+      const alertDetailResults = await Promise.allSettled(
+        tokenList.items.map((item) => fetchTokenDetail(item.chain_id, item.contract_address)),
+      );
+      const alertDetails = alertDetailResults.flatMap((result) =>
+        result.status === "fulfilled" ? [result.value] : [],
+      );
+
       setSnapshot(
         adaptAppSnapshot({
           agentHealth,
@@ -64,6 +72,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
           kols,
           kolRankings,
           feed,
+          alertDetails,
         }),
       );
     } catch (caughtError) {

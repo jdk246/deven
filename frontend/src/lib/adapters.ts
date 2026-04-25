@@ -17,6 +17,7 @@ import type {
   ValidationResponse,
 } from "../api/trustTrace";
 import type {
+  ActiveAlert,
   AppSnapshot,
   AssetData,
   AuditCheck,
@@ -375,6 +376,151 @@ function buildFeedCall(feedItem: KOLFeedItemResponse, assets: Record<string, Ass
   };
 }
 
+function cleanAlertTitle(value: string | null | undefined) {
+  if (!value) {
+    return "Audit alert";
+  }
+
+  return value
+    .replace(/\s+Not Found$/i, "")
+    .replace(/\s+Not Detected$/i, "")
+    .replace(/\s+Found$/i, "")
+    .trim();
+}
+
+function alertSeverity(title: string) {
+  const normalized = title.trim().toLowerCase();
+
+  if (
+    normalized.includes("rug pull") ||
+    normalized.includes("honeypot") ||
+    normalized.includes("fake token") ||
+    normalized.includes("scam risk")
+  ) {
+    return 5;
+  }
+
+  if (
+    normalized.includes("trading may be paused") ||
+    normalized.includes("paused") ||
+    normalized.includes("freezable") ||
+    normalized.includes("closable") ||
+    normalized.includes("balance manipulation") ||
+    normalized.includes("malicious creator")
+  ) {
+    return 4;
+  }
+
+  if (
+    normalized.includes("mintable") ||
+    normalized.includes("upgradeable") ||
+    normalized.includes("modifiable tax") ||
+    normalized.includes("unusual sell tax") ||
+    normalized.includes("unusual buy tax") ||
+    normalized.includes("liquidity risk")
+  ) {
+    return 3;
+  }
+
+  if (
+    normalized.includes("metadata mutable") ||
+    normalized.includes("wash trading") ||
+    normalized.includes("token risk warning")
+  ) {
+    return 1;
+  }
+
+  return 2;
+}
+
+function riskPriority(value: AuditRiskLevel | null | undefined) {
+  if (value === "high") {
+    return 3;
+  }
+  if (value === "medium") {
+    return 2;
+  }
+  if (value === "low") {
+    return 1;
+  }
+  return 0;
+}
+
+function buildActiveAlerts(
+  details: TokenDetailResponse[],
+  assets: Record<string, AssetData>,
+): ActiveAlert[] {
+  const alerts = details.flatMap((detail) => {
+    const riskLevel = toRiskLevel(detail.audit?.risk_level_enum);
+    const triggeredTitles =
+      detail.audit?.risk_items.flatMap((item) =>
+        item.details
+          .filter((riskDetail) => riskDetail.isHit)
+          .map((riskDetail) => cleanAlertTitle(riskDetail.title)),
+      ) ?? [];
+
+    const uniqueTitles = [...new Set(triggeredTitles)].filter(Boolean);
+    const prioritizedTitles = uniqueTitles
+      .filter((title) => alertSeverity(title) >= 3)
+      .sort((left, right) => alertSeverity(right) - alertSeverity(left));
+
+    if (prioritizedTitles.length === 0 && riskLevel !== "high") {
+      return [];
+    }
+
+    const key = tokenKey(detail.token.chain_id, detail.token.contract_address);
+    const asset = assets[key];
+    const symbol = safeName(
+      detail.token.symbol,
+      detail.token.contract_address.slice(0, 6).toUpperCase(),
+    );
+    const tokenName = safeName(detail.token.name, symbol);
+    const titles =
+      prioritizedTitles.length > 0
+        ? prioritizedTitles.slice(0, 3)
+        : ["High audit risk classification"];
+
+    return [
+      {
+        id: `${key}:${titles.join("|")}`,
+        chainId: detail.token.chain_id,
+        chainName: detail.token.chain_name,
+        contractAddress: detail.token.contract_address,
+        symbol,
+        tokenName,
+        riskLevel,
+        attentionScore: detail.insight?.attention_score ?? asset?.attentionScore ?? null,
+        label: detail.insight?.label ?? asset?.label ?? null,
+        titles,
+        triggeredCount: prioritizedTitles.length || 1,
+        updatedAt:
+          detail.audit?.ts ??
+          detail.source_freshness.audit_at ??
+          detail.insight?.generated_at ??
+          detail.token.updated_at,
+      },
+    ];
+  });
+
+  return alerts.sort((left, right) => {
+    const riskDiff = riskPriority(right.riskLevel) - riskPriority(left.riskLevel);
+    if (riskDiff !== 0) {
+      return riskDiff;
+    }
+
+    if (right.triggeredCount !== left.triggeredCount) {
+      return right.triggeredCount - left.triggeredCount;
+    }
+
+    const titleSeverityDiff = alertSeverity(right.titles[0] ?? "") - alertSeverity(left.titles[0] ?? "");
+    if (titleSeverityDiff !== 0) {
+      return titleSeverityDiff;
+    }
+
+    return (right.attentionScore ?? -1) - (left.attentionScore ?? -1);
+  });
+}
+
 export function adaptAppSnapshot(input: {
   agentHealth: AgentHealthResponse;
   validation: ValidationResponse;
@@ -384,6 +530,7 @@ export function adaptAppSnapshot(input: {
   kols: KOLListResponse;
   kolRankings: KOLRankingsResponse;
   feed: { items: KOLFeedItemResponse[] };
+  alertDetails: TokenDetailResponse[];
 }): AppSnapshot {
   const trendingByKey = new Map(
     input.trending.items.map((item) => [tokenKey(item.chain_id, item.contract_address), item]),
@@ -445,6 +592,7 @@ export function adaptAppSnapshot(input: {
   const kolList = Object.values(kols).sort(
     (left, right) => right.reliabilityScore - left.reliabilityScore,
   );
+  const activeAlerts = buildActiveAlerts(input.alertDetails, assets);
 
   return {
     agentMode: input.agentHealth.agent_mode,
@@ -455,6 +603,7 @@ export function adaptAppSnapshot(input: {
     availableChains: buildChainInfo(input.trending.available_chains),
     assets,
     assetList,
+    activeAlerts,
     kols,
     kolList,
     feed,

@@ -1,4 +1,4 @@
-import {
+﻿import {
   Activity,
   AlertCircle,
   ArrowUpRight,
@@ -13,12 +13,13 @@ import { useNavigate } from "react-router-dom";
 import { Avatar } from "../components/Avatar";
 import { GlassCard } from "../components/GlassCard";
 import { ScorePill } from "../components/ScorePill";
-import type { AssetData, Call, KOL, ValidationState } from "../types";
+import type { ActiveAlert, AssetData, Call, KOL, ValidationState } from "../types";
 
 interface DashboardPageProps {
   calls: Call[];
   kols: Record<string, KOL>;
   assets: Record<string, AssetData>;
+  activeAlerts: ActiveAlert[];
   validationStatus: ValidationState;
 }
 
@@ -39,6 +40,7 @@ export function DashboardPage({
   calls,
   kols,
   assets,
+  activeAlerts,
   validationStatus,
 }: DashboardPageProps) {
   const navigate = useNavigate();
@@ -62,10 +64,6 @@ export function DashboardPage({
       return (right.evaluatedCalls ?? 0) - (left.evaluatedCalls ?? 0);
     })
     .slice(0, 3);
-
-  const riskyAssets = assetList.filter(
-    (asset) => asset.riskLevel === "high" || asset.label === "Weak / Risky",
-  );
 
   const totalTracked = Object.keys(kols).length;
   const totalEvaluatedCalls = Object.values(kols).reduce(
@@ -136,11 +134,11 @@ export function DashboardPage({
             className="p-4 sm:p-6 border-red-500/30 bg-gradient-to-r from-red-500/10 to-orange-500/10"
           >
             <div className="flex items-center justify-between mb-2 sm:mb-3">
-              <div className="text-xs sm:text-sm text-red-300">Risk Flags</div>
+              <div className="text-xs sm:text-sm text-red-300">Active Alerts</div>
               <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-red-400" />
             </div>
-            <div className="text-2xl sm:text-3xl font-bold text-red-400">{riskyAssets.length}</div>
-            <div className="text-xs text-red-300/60 mt-1">Higher-risk tracked tokens</div>
+            <div className="text-2xl sm:text-3xl font-bold text-red-400">{activeAlerts.length}</div>
+            <div className="text-xs text-red-300/60 mt-1">Requires attention</div>
           </GlassCard>
         </div>
 
@@ -314,21 +312,21 @@ export function DashboardPage({
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-sm font-semibold text-red-300 uppercase tracking-wide flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-red-400 animate-pulse"></div>
-                Attention Flags
+                Rug Alerts
               </h2>
               <span className="text-xs text-white/40 uppercase tracking-wide">
-                {riskyAssets.length} current
+                {activeAlerts.length} current
               </span>
             </div>
             <GlassCard className="border-red-500/30 bg-gradient-to-r from-red-500/10 to-pink-500/10">
-              {riskyAssets.length > 0 ? (
-                riskyAssets.slice(0, 4).map((asset) => (
+              {activeAlerts.length > 0 ? (
+                activeAlerts.slice(0, 4).map((alert) => (
                   <div
-                    key={asset.key}
+                    key={alert.id}
                     className="p-4 border-b border-white/5 last:border-b-0 hover:bg-white/5 cursor-pointer transition-all duration-300"
                     onClick={() =>
                       navigate(
-                        `/market/${encodeURIComponent(asset.chainId)}/${encodeURIComponent(asset.contractAddress)}`,
+                        `/market/${encodeURIComponent(alert.chainId)}/${encodeURIComponent(alert.contractAddress)}`,
                       )
                     }
                   >
@@ -338,11 +336,14 @@ export function DashboardPage({
                       </div>
                       <div className="flex-1">
                         <p className="text-sm text-white/90 mb-1">
-                          <span className="font-semibold text-white">{asset.symbol}</span> is currently flagged as{" "}
-                          {asset.label ?? asset.riskLevel ?? "higher risk"}
+                          <span className="font-semibold text-white">{alert.symbol}</span> triggered{" "}
+                          {alert.triggeredCount === 1 ? "an audit alert" : `${alert.triggeredCount} audit alerts`}
                         </p>
                         <p className="text-xs text-white/60">
-                          {asset.chainName} - Attention {asset.attentionScore?.toFixed(1) ?? "N/A"}
+                          {alert.chainName} - {alert.titles.join(" | ")}
+                        </p>
+                        <p className="text-xs text-white/40 mt-1">
+                          Attention {alert.attentionScore?.toFixed(1) ?? "N/A"}
                         </p>
                       </div>
                     </div>
@@ -350,7 +351,7 @@ export function DashboardPage({
                 ))
               ) : (
                 <div className="p-4 text-sm text-white/70">
-                  No high-risk tokens are currently highlighted in the local snapshot.
+                  No high-priority contract alerts are currently active in the local snapshot.
                 </div>
               )}
             </GlassCard>
@@ -360,3 +361,4 @@ export function DashboardPage({
     </div>
   );
 }
+
