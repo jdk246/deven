@@ -1,5 +1,9 @@
 {
-  "dependencies": {
-    "react-router-dom": "^7.14.2"
+  "name": "trust-trace",
+  "private": true,
+  "scripts": {
+    "dev:frontend": "npm --prefix frontend run dev",
+    "build:frontend": "npm --prefix frontend run build",
+    "preview:frontend": "npm --prefix frontend run preview"
   }
 }

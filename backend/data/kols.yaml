@@ -1,0 +1,139 @@
+- handle: "macro_mina"
+  display_name: "Macro Mina"
+  category: "macro"
+  priority: 1
+  notes: "Focuses on rotation between majors and high-liquidity ecosystems."
+  wallets: []
+
+- handle: "onchain_omar"
+  display_name: "Onchain Omar"
+  category: "onchain"
+  priority: 2
+  notes: "Tracks wallet flow, holder concentration, and exchange inflows."
+  wallets: []
+
+- handle: "sol_sage"
+  display_name: "Sol Sage"
+  category: "solana"
+  priority: 3
+  notes: "Mostly watches Solana memes and infrastructure tokens."
+  wallets: []
+
+- handle: "bsc_bella"
+  display_name: "BSC Bella"
+  category: "bsc"
+  priority: 4
+  notes: "Looks for early BNB Chain momentum and liquidity stability."
+  wallets: []
+
+- handle: "base_beacon"
+  display_name: "Base Beacon"
+  category: "base"
+  priority: 5
+  notes: "Flags new Base launches once liquidity and wallet quality appear."
+  wallets: []
+
+- handle: "meme_marshal"
+  display_name: "Meme Marshal"
+  category: "memecoin"
+  priority: 6
+  notes: "High-noise feed with occasional good early reads on meme rotations."
+  wallets: []
+
+- handle: "defi_dahlia"
+  display_name: "DeFi Dahlia"
+  category: "defi"
+  priority: 7
+  notes: "Interested in revenue, TVL, and durable user activity."
+  wallets: []
+
+- handle: "ai_arden"
+  display_name: "AI Arden"
+  category: "ai"
+  priority: 8
+  notes: "Covers AI-adjacent tokens and narrative shifts."
+  wallets: []
+
+- handle: "wallet_wren"
+  display_name: "Wallet Wren"
+  category: "smart_money"
+  priority: 9
+  notes: "Mostly posts about tracked wallets and repeat buyers."
+  wallets: []
+
+- handle: "liquidity_luca"
+  display_name: "Liquidity Luca"
+  category: "market_structure"
+  priority: 10
+  notes: "Prefers setups with depth and better slippage conditions."
+  wallets: []
+
+- handle: "builder_brynn"
+  display_name: "Builder Brynn"
+  category: "builders"
+  priority: 11
+  notes: "Leans toward infra and ecosystem products rather than memes."
+  wallets: []
+
+- handle: "risk_rhea"
+  display_name: "Risk Rhea"
+  category: "security"
+  priority: 12
+  notes: "Usually skeptical and focused on audits, taxes, and unlock risk."
+  wallets: []
+
+- handle: "narrative_niko"
+  display_name: "Narrative Niko"
+  category: "narratives"
+  priority: 13
+  notes: "Tracks market attention before it becomes obvious on larger feeds."
+  wallets: []
+
+- handle: "flow_faiza"
+  display_name: "Flow Faiza"
+  category: "smart_money"
+  priority: 14
+  notes: "Uses inflow and leaderboard tools to validate hype."
+  wallets: []
+
+- handle: "token_tori"
+  display_name: "Token Tori"
+  category: "trader"
+  priority: 15
+  notes: "Fast-moving feed with short-form conviction calls."
+  wallets: []
+
+- handle: "chain_chase"
+  display_name: "Chain Chase"
+  category: "multi_chain"
+  priority: 16
+  notes: "Compares BSC, Solana, and Base momentum side by side."
+  wallets: []
+
+- handle: "yield_yara"
+  display_name: "Yield Yara"
+  category: "defi"
+  priority: 17
+  notes: "Cares about incentives, emissions, and sticky capital."
+  wallets: []
+
+- handle: "alpha_avery"
+  display_name: "Alpha Avery"
+  category: "research"
+  priority: 18
+  notes: "Posts medium-conviction thesis threads rather than frequent hot takes."
+  wallets: []
+
+- handle: "chart_cedric"
+  display_name: "Chart Cedric"
+  category: "technical"
+  priority: 19
+  notes: "Adds chart context to otherwise hype-driven setups."
+  wallets: []
+
+- handle: "dune_dara"
+  display_name: "Dune Dara"
+  category: "analytics"
+  priority: 20
+  notes: "References dashboards and wallet cohorts for confirmation."
+  wallets: []
