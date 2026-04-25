@@ -116,6 +116,29 @@ export type KOLListResponse = {
   items: KOLListItemResponse[];
 };
 
+export type KOLRankingItemResponse = {
+  kol_id: number;
+  handle: string;
+  display_name: string | null;
+  category: string | null;
+  track_record_score: number | null;
+  label: string;
+  total_calls: number;
+  evaluated_calls: number;
+  hits: number;
+  misses: number;
+  hit_rate: number | null;
+  average_return_24h: number | null;
+  sample_size_confidence: number;
+  explanation: string;
+  updated_at: string | null;
+};
+
+export type KOLRankingsResponse = {
+  items: KOLRankingItemResponse[];
+  methodology: string;
+};
+
 export type KOLFeedMentionResponse = {
   mention_type: string;
   symbol_text: string | null;
@@ -205,6 +228,77 @@ export type KOLDetailResponse = {
     text: string | null;
     url: string | null;
   }>;
+};
+
+export type KOLTrackRecordCallResponse = {
+  call_id: number;
+  post_id: number;
+  chain_id: string;
+  chain_name: string;
+  contract_address: string;
+  symbol_text: string | null;
+  token_symbol: string | null;
+  token_name: string | null;
+  direction: string;
+  confidence: number | null;
+  post_created_at: string;
+  source_mode: string;
+  evaluation_status: string;
+  price_at_post: number | null;
+  price_1h: number | null;
+  price_6h: number | null;
+  price_24h: number | null;
+  price_7d: number | null;
+  return_1h: number | null;
+  return_6h: number | null;
+  return_24h: number | null;
+  return_7d: number | null;
+  primary_return: number | null;
+  primary_window: string | null;
+  is_hit: boolean | null;
+  price_source: Record<string, unknown> | null;
+  evaluated_at: string | null;
+};
+
+export type KOLTrackRecordResponse = {
+  profile: {
+    kol_id: number;
+    handle: string;
+    display_name: string | null;
+    category: string | null;
+    priority: number | null;
+    notes: string | null;
+  };
+  score: {
+    window: string;
+    track_record_score: number | null;
+    label: string;
+    total_calls: number;
+    evaluated_calls: number;
+    bullish_calls: number;
+    bearish_calls: number;
+    neutral_or_unknown_calls: number;
+    hits: number;
+    misses: number;
+    hit_rate: number | null;
+    average_return_24h: number | null;
+    median_return_24h: number | null;
+    average_primary_return: number | null;
+    sample_size_confidence: number;
+    updated_at: string | null;
+    rationale: Record<string, unknown>;
+  };
+  recent_calls: KOLTrackRecordCallResponse[];
+  evaluated_calls: {
+    count: number;
+    items: KOLTrackRecordCallResponse[];
+  };
+  pending_calls: {
+    count: number;
+    items: KOLTrackRecordCallResponse[];
+  };
+  methodology: string;
+  disclaimer: string;
 };
 
 export type TokenDetailResponse = {
@@ -376,12 +470,33 @@ export function fetchKOLs(): Promise<KOLListResponse> {
   return fetchJson<KOLListResponse>("/api/kols");
 }
 
+export function fetchKOLRankings(
+  limit = 50,
+  options?: { minEvaluatedCalls?: number; includeInsufficient?: boolean },
+): Promise<KOLRankingsResponse> {
+  const params = new URLSearchParams();
+  params.set("limit", String(limit));
+  if (options?.minEvaluatedCalls !== undefined) {
+    params.set("min_evaluated_calls", String(options.minEvaluatedCalls));
+  }
+  if (options?.includeInsufficient !== undefined) {
+    params.set("include_insufficient", String(options.includeInsufficient));
+  }
+  return fetchJson<KOLRankingsResponse>(`/api/kols/rankings?${params.toString()}`);
+}
+
 export function fetchKOLFeed(limit = 40): Promise<KOLFeedResponse> {
   return fetchJson<KOLFeedResponse>(`/api/kols/feed?limit=${limit}`);
 }
 
 export function fetchKOLDetail(handle: string): Promise<KOLDetailResponse> {
   return fetchJson<KOLDetailResponse>(`/api/kols/${encodeURIComponent(handle.replace(/^@/, ""))}`);
+}
+
+export function fetchKOLTrackRecord(handle: string): Promise<KOLTrackRecordResponse> {
+  return fetchJson<KOLTrackRecordResponse>(
+    `/api/kols/${encodeURIComponent(handle.replace(/^@/, ""))}/track-record`,
+  );
 }
 
 export function fetchTokenDetail(

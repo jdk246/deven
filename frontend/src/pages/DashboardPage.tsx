@@ -2,7 +2,7 @@ import {
   Activity,
   AlertCircle,
   ArrowUpRight,
-  Bot,
+  CheckCircle2,
   Shield,
   TrendingDown,
   TrendingUp,
@@ -55,7 +55,12 @@ export function DashboardPage({
     .slice(0, 4);
 
   const topKOLs = Object.values(kols)
-    .sort((left, right) => right.reliabilityScore - left.reliabilityScore)
+    .sort((left, right) => {
+      if (right.reliabilityScore !== left.reliabilityScore) {
+        return right.reliabilityScore - left.reliabilityScore;
+      }
+      return (right.evaluatedCalls ?? 0) - (left.evaluatedCalls ?? 0);
+    })
     .slice(0, 3);
 
   const riskyAssets = assetList.filter(
@@ -63,12 +68,15 @@ export function DashboardPage({
   );
 
   const totalTracked = Object.keys(kols).length;
-  const totalAssets = assetList.length;
+  const totalEvaluatedCalls = Object.values(kols).reduce(
+    (sum, kol) => sum + (kol.evaluatedCalls ?? 0),
+    0,
+  );
   const avgScore = Math.round(
     Object.values(kols).reduce((sum, kol) => sum + kol.reliabilityScore, 0) /
       Math.max(1, totalTracked),
   );
-  const insightReady = assetList.filter((asset) => asset.attentionScore !== null && asset.attentionScore !== undefined).length;
+  const totalAssets = assetList.length;
 
   return (
     <div className="min-h-screen text-white relative z-10">
@@ -78,71 +86,61 @@ export function DashboardPage({
             Dashboard
           </h1>
           <p className="text-sm sm:text-base text-white/60">
-            Current system snapshot across market, social, and risk context
+            Your command center for tracking KOL calls, market movement, and token risk
           </p>
+          <div className="mt-3 inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/70">
+            {validationStatus === "pass" ? (
+              <CheckCircle2 className="w-3.5 h-3.5 text-green-400" />
+            ) : (
+              <Shield className="w-3.5 h-3.5 text-white/70" />
+            )}
+            Validation {validationStatus}
+          </div>
         </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
           <GlassCard className="p-4 sm:p-6">
             <div className="flex items-center justify-between mb-2 sm:mb-3">
-              <div className="text-xs sm:text-sm text-white/60">KOL Profiles</div>
-              <Users className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
+              <div className="text-xs sm:text-sm text-white/60">KOLs Tracked</div>
+              <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
             </div>
             <div className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-white to-purple-200 bg-clip-text text-transparent">
               {totalTracked}
             </div>
-            <div className="text-xs text-white/40 mt-1">Curated social profiles</div>
+            <div className="text-xs text-white/40 mt-1">Across monitored profiles</div>
           </GlassCard>
 
           <GlassCard className="p-4 sm:p-6">
             <div className="flex items-center justify-between mb-2 sm:mb-3">
-              <div className="text-xs sm:text-sm text-white/60">Tracked Tokens</div>
+              <div className="text-xs sm:text-sm text-white/60">Calls Evaluated</div>
               <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-green-400" />
             </div>
             <div className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-white to-blue-200 bg-clip-text text-transparent">
-              {totalAssets}
+              {totalEvaluatedCalls}
             </div>
-            <div className="text-xs text-white/40 mt-1">Across enabled chains</div>
+            <div className="text-xs text-white/40 mt-1">Post-event directional calls</div>
           </GlassCard>
 
           <GlassCard className="p-4 sm:p-6">
             <div className="flex items-center justify-between mb-2 sm:mb-3">
-              <div className="text-xs sm:text-sm text-white/60">Insights Ready</div>
-              <Bot className="w-4 h-4 sm:w-5 sm:h-5 text-violet-300" />
+              <div className="text-xs sm:text-sm text-white/60">Avg Alignment</div>
+              <Users className="w-4 h-4 sm:w-5 sm:h-5 text-violet-300" />
             </div>
             <div className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-white to-violet-200 bg-clip-text text-transparent">
-              {insightReady}
+              {avgScore}%
             </div>
-            <div className="text-xs text-white/40 mt-1">Tokens with stored Attention Scores</div>
+            <div className="text-xs text-white/40 mt-1">Across tracked KOL profiles</div>
           </GlassCard>
 
           <GlassCard
-            className={`p-4 sm:p-6 ${
-              validationStatus === "pass"
-                ? "border-green-500/30 bg-gradient-to-r from-green-500/10 to-emerald-500/10"
-                : validationStatus === "warn"
-                  ? "border-amber-500/30 bg-gradient-to-r from-amber-500/10 to-orange-500/10"
-                  : "border-red-500/30 bg-gradient-to-r from-red-500/10 to-orange-500/10"
-            }`}
+            className="p-4 sm:p-6 border-red-500/30 bg-gradient-to-r from-red-500/10 to-orange-500/10"
           >
             <div className="flex items-center justify-between mb-2 sm:mb-3">
-              <div
-                className={`text-xs sm:text-sm ${
-                  validationStatus === "pass"
-                    ? "text-green-300"
-                    : validationStatus === "warn"
-                      ? "text-amber-300"
-                      : "text-red-300"
-                }`}
-              >
-                Validation
-              </div>
-              <Shield className="w-4 h-4 sm:w-5 sm:h-5 text-white/80" />
+              <div className="text-xs sm:text-sm text-red-300">Risk Flags</div>
+              <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-red-400" />
             </div>
-            <div className="text-2xl sm:text-3xl font-bold text-white">
-              {validationStatus.toUpperCase()}
-            </div>
-            <div className="text-xs text-white/50 mt-1">Backend demo readiness</div>
+            <div className="text-2xl sm:text-3xl font-bold text-red-400">{riskyAssets.length}</div>
+            <div className="text-xs text-red-300/60 mt-1">Higher-risk tracked tokens</div>
           </GlassCard>
         </div>
 
@@ -213,7 +211,7 @@ export function DashboardPage({
           <div>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-sm font-semibold text-white/80 uppercase tracking-wide">
-                Top Profiles
+                Top Track Records
               </h2>
               <button
                 onClick={() => navigate("/kols")}
@@ -235,7 +233,7 @@ export function DashboardPage({
                     <div className="flex-1 min-w-0">
                       <div className="font-semibold text-white text-sm mb-0.5">{kol.name}</div>
                       <div className="text-xs text-white/40">
-                        {kol.primaryAsset} - {kol.callCount} posts
+                        {kol.primaryAsset} - {kol.callCount} calls
                       </div>
                     </div>
                     <ScorePill score={kol.reliabilityScore} tier={kol.tier} size="sm" />
@@ -245,10 +243,10 @@ export function DashboardPage({
             </GlassCard>
             <div className="mt-4">
               <GlassCard className="p-4">
-                <div className="text-xs text-white/60 mb-1">Average profile signal</div>
-                <div className="text-2xl font-bold text-white">{avgScore}%</div>
+                <div className="text-xs text-white/60 mb-1">Tracked tokens</div>
+                <div className="text-2xl font-bold text-white">{totalAssets}</div>
                 <div className="text-xs text-white/40 mt-1">
-                  Frontend heuristic based on curation priority, post coverage, and resolved mentions
+                  Markets currently represented in the backend snapshot
                 </div>
               </GlassCard>
             </div>

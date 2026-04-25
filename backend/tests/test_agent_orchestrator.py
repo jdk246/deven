@@ -80,7 +80,7 @@ class RecordingRegistry:
 
         if tool_name == "search_kol_mentions":
             symbol = "SOL" if args.get("chain_id") == "CT_501" else "BNB"
-            handle = "sol_sage" if symbol == "SOL" else "macro_mina"
+            handle = "ansem_demo" if symbol == "SOL" else "raoul_pal_demo"
             return make_agent_tool_result(
                 skill_name="internal_database_context",
                 tool_name="search_kol_mentions",
@@ -155,8 +155,8 @@ class RecordingRegistry:
                 data={
                     "items": [
                         {
-                            "handle": "sol_sage",
-                            "display_name": "Sol Sage",
+                            "handle": "ansem_demo",
+                            "display_name": "Ansem (Demo)",
                             "category": "solana",
                             "priority": 3,
                             "stats": {"post_count": 2, "resolved_mention_count": 2},

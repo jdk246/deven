@@ -46,9 +46,9 @@ export function LandingPage({
     },
     {
       icon: Users,
-      title: "KOL Context Layer",
+      title: "KOL Track Records",
       description:
-        "Monitor curated KOL profiles, recent posts, extracted token mentions, and sentiment without relying on live social credentials.",
+        "Monitor recognizable demo KOL profiles, track token mentions, and score historical post-event alignment across evaluated calls.",
       gradient: "from-purple-500 to-violet-600",
     },
     {
@@ -128,7 +128,7 @@ export function LandingPage({
               onClick={() => navigate("/dashboard")}
               className="bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 text-white border-0 shadow-lg shadow-purple-500/30"
             >
-              Open dashboard
+                Open dashboard
             </Button>
             <Button
               variant="outline"
@@ -236,11 +236,11 @@ export function LandingPage({
                 Current state
               </div>
               <div className="text-lg font-semibold text-white">
-                Curated KOL context + live market data
+                Historical KOL alignment + live market data
               </div>
               <p className="text-sm text-white/60 mt-2">
-                The social layer is stable and reproducible for demos, while market, audit, and
-                smart-money views stay current.
+                The social layer stays reproducible for demos, while market, audit, and smart-money
+                views stay current and the KOL layer now includes post-event performance scoring.
               </p>
             </div>
             <div className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10">

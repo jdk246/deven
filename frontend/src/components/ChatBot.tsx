@@ -19,9 +19,10 @@ interface Message {
 
 const SUGGESTIONS = [
   "Which tokens are trending right now?",
+  "Which KOLs have the best track record?",
   "Which tokens look risky?",
   "Is the KOL hype backed by market data?",
-  "Which KOLs mentioned SOL?",
+  "How do you calculate KOL rankings?",
 ];
 
 export function ChatBot() {

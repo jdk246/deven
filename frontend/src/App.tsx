@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Routes, Route, useParams } from "react-router-dom";
 
-import { fetchKOLDetail, fetchTokenDetail } from "./api/trustTrace";
+import { fetchKOLDetail, fetchKOLTrackRecord, fetchTokenDetail } from "./api/trustTrace";
 import { ChatBot } from "./components/ChatBot";
 import { Sidebar } from "./components/Sidebar";
 import { adaptKolDetail, adaptMarketDetail, adaptTokenAudit } from "./lib/adapters";
@@ -53,9 +53,12 @@ function KOLProfileRoute() {
       setDetail(null);
 
       try {
-        const response = await fetchKOLDetail(handle);
+        const [detailResponse, trackRecordResponse] = await Promise.all([
+          fetchKOLDetail(handle),
+          fetchKOLTrackRecord(handle),
+        ]);
         if (!cancelled) {
-          setDetail(adaptKolDetail(response));
+          setDetail(adaptKolDetail(detailResponse, trackRecordResponse));
         }
       } catch (caughtError) {
         if (!cancelled) {
@@ -75,7 +78,7 @@ function KOLProfileRoute() {
   }
 
   if (!detail) {
-    return <FullScreenState title="Loading profile" message="Pulling the latest KOL profile and post activity." />;
+    return <FullScreenState title="Loading profile" message="Pulling the latest KOL profile, posts, and historical alignment." />;
   }
 
   return <KOLProfilePage detail={detail} />;

@@ -1,139 +1,139 @@
-- handle: "macro_mina"
-  display_name: "Macro Mina"
+- handle: "raoul_pal_demo"
+  display_name: "Raoul Pal (Demo)"
   category: "macro"
   priority: 1
-  notes: "Focuses on rotation between majors and high-liquidity ecosystems."
+  notes: "Demo profile inspired by macro-oriented crypto market commentary."
   wallets: []
 
-- handle: "onchain_omar"
-  display_name: "Onchain Omar"
+- handle: "willy_woo_demo"
+  display_name: "Willy Woo (Demo)"
   category: "onchain"
   priority: 2
-  notes: "Tracks wallet flow, holder concentration, and exchange inflows."
+  notes: "Demo profile inspired by on-chain flow and market structure commentary."
   wallets: []
 
-- handle: "sol_sage"
-  display_name: "Sol Sage"
+- handle: "ansem_demo"
+  display_name: "Ansem (Demo)"
   category: "solana"
   priority: 3
-  notes: "Mostly watches Solana memes and infrastructure tokens."
+  notes: "Demo profile inspired by Solana-native market commentary and narrative momentum."
   wallets: []
 
-- handle: "bsc_bella"
-  display_name: "BSC Bella"
+- handle: "crypto_kaleo_demo"
+  display_name: "Crypto Kaleo (Demo)"
   category: "bsc"
   priority: 4
-  notes: "Looks for early BNB Chain momentum and liquidity stability."
+  notes: "Demo profile inspired by fast-moving altcoin and momentum commentary."
   wallets: []
 
-- handle: "base_beacon"
-  display_name: "Base Beacon"
+- handle: "cobie_demo"
+  display_name: "Cobie (Demo)"
   category: "base"
   priority: 5
-  notes: "Flags new Base launches once liquidity and wallet quality appear."
+  notes: "Demo profile inspired by multi-chain market commentary and social narrative reads."
   wallets: []
 
-- handle: "meme_marshal"
-  display_name: "Meme Marshal"
+- handle: "murad_demo"
+  display_name: "Murad (Demo)"
   category: "memecoin"
   priority: 6
-  notes: "High-noise feed with occasional good early reads on meme rotations."
+  notes: "Demo profile inspired by meme-rotation commentary and high-volatility market takes."
   wallets: []
 
-- handle: "defi_dahlia"
-  display_name: "DeFi Dahlia"
+- handle: "michael_vandepoppe_demo"
+  display_name: "Michael van de Poppe (Demo)"
   category: "defi"
   priority: 7
-  notes: "Interested in revenue, TVL, and durable user activity."
+  notes: "Demo profile inspired by altcoin rotation and DeFi market commentary."
   wallets: []
 
-- handle: "ai_arden"
-  display_name: "AI Arden"
+- handle: "alex_becker_demo"
+  display_name: "Alex Becker (Demo)"
   category: "ai"
   priority: 8
-  notes: "Covers AI-adjacent tokens and narrative shifts."
+  notes: "Demo profile inspired by AI-token and high-beta market commentary."
   wallets: []
 
-- handle: "wallet_wren"
-  display_name: "Wallet Wren"
+- handle: "loomdart_demo"
+  display_name: "Loomdart (Demo)"
   category: "smart_money"
   priority: 9
-  notes: "Mostly posts about tracked wallets and repeat buyers."
+  notes: "Demo profile inspired by trader flow and wallet-aware market commentary."
   wallets: []
 
-- handle: "liquidity_luca"
-  display_name: "Liquidity Luca"
+- handle: "daan_crypto_demo"
+  display_name: "Daan Crypto Trades (Demo)"
   category: "market_structure"
   priority: 10
-  notes: "Prefers setups with depth and better slippage conditions."
+  notes: "Demo profile inspired by liquidity, structure, and execution-focused commentary."
   wallets: []
 
-- handle: "builder_brynn"
-  display_name: "Builder Brynn"
+- handle: "mert_demo"
+  display_name: "Mert (Demo)"
   category: "builders"
   priority: 11
-  notes: "Leans toward infra and ecosystem products rather than memes."
+  notes: "Demo profile inspired by builder and infrastructure-focused market commentary."
   wallets: []
 
-- handle: "risk_rhea"
-  display_name: "Risk Rhea"
+- handle: "zachxbt_demo"
+  display_name: "ZachXBT (Demo)"
   category: "security"
   priority: 12
-  notes: "Usually skeptical and focused on audits, taxes, and unlock risk."
+  notes: "Demo profile inspired by risk, investigation, and security-oriented commentary."
   wallets: []
 
-- handle: "narrative_niko"
-  display_name: "Narrative Niko"
+- handle: "pentoshi_demo"
+  display_name: "Pentoshi (Demo)"
   category: "narratives"
   priority: 13
-  notes: "Tracks market attention before it becomes obvious on larger feeds."
+  notes: "Demo profile inspired by narrative-driven market commentary and timing reads."
   wallets: []
 
-- handle: "flow_faiza"
-  display_name: "Flow Faiza"
+- handle: "arthur_hayes_demo"
+  display_name: "Arthur Hayes (Demo)"
   category: "smart_money"
   priority: 14
-  notes: "Uses inflow and leaderboard tools to validate hype."
+  notes: "Demo profile inspired by liquidity, macro flow, and market regime commentary."
   wallets: []
 
-- handle: "token_tori"
-  display_name: "Token Tori"
+- handle: "altcoin_sherpa_demo"
+  display_name: "Altcoin Sherpa (Demo)"
   category: "trader"
   priority: 15
-  notes: "Fast-moving feed with short-form conviction calls."
+  notes: "Demo profile inspired by short-form altcoin setup commentary."
   wallets: []
 
-- handle: "chain_chase"
-  display_name: "Chain Chase"
+- handle: "miles_deutscher_demo"
+  display_name: "Miles Deutscher (Demo)"
   category: "multi_chain"
   priority: 16
-  notes: "Compares BSC, Solana, and Base momentum side by side."
+  notes: "Demo profile inspired by cross-chain trend and rotation commentary."
   wallets: []
 
-- handle: "yield_yara"
-  display_name: "Yield Yara"
+- handle: "crypto_cred_demo"
+  display_name: "Crypto Cred (Demo)"
   category: "defi"
   priority: 17
-  notes: "Cares about incentives, emissions, and sticky capital."
+  notes: "Demo profile inspired by structured educational and market commentary."
   wallets: []
 
-- handle: "alpha_avery"
-  display_name: "Alpha Avery"
+- handle: "emperorbtc_demo"
+  display_name: "EmperorBTC (Demo)"
   category: "research"
   priority: 18
-  notes: "Posts medium-conviction thesis threads rather than frequent hot takes."
+  notes: "Demo profile inspired by thesis-driven market commentary and conviction calls."
   wallets: []
 
-- handle: "chart_cedric"
-  display_name: "Chart Cedric"
+- handle: "credibull_demo"
+  display_name: "CrediBULL Crypto (Demo)"
   category: "technical"
   priority: 19
-  notes: "Adds chart context to otherwise hype-driven setups."
+  notes: "Demo profile inspired by chart-driven market commentary."
   wallets: []
 
-- handle: "dune_dara"
-  display_name: "Dune Dara"
+- handle: "ki_young_ju_demo"
+  display_name: "Ki Young Ju (Demo)"
   category: "analytics"
   priority: 20
-  notes: "References dashboards and wallet cohorts for confirmation."
+  notes: "Demo profile inspired by analytics-heavy market commentary and dashboard-driven reads."
   wallets: []

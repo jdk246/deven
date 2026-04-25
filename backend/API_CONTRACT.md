@@ -376,13 +376,13 @@ Response shape:
   "data_mode": "seed",
   "items": [
     {
-      "handle": "macro_mina",
-      "display_name": "Macro Mina",
+      "handle": "raoul_pal_demo",
+      "display_name": "Raoul Pal (Demo)",
       "category": "macro",
       "priority": 1,
       "post_count": 2,
       "resolved_mention_count": 4,
-      "wallet_count": 1
+      "wallet_count": 0
     }
   ]
 }
@@ -484,7 +484,7 @@ Response shape:
 Curl example:
 
 ```bash
-curl -sS "http://127.0.0.1:8000/api/kols/macro_mina"
+curl -sS "http://127.0.0.1:8000/api/kols/willy_woo_demo"
 ```
 
 Frontend usage notes:

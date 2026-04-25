@@ -17,7 +17,13 @@ export function AllKOLsPage({ kols }: AllKOLsPageProps) {
   const [searchQuery, setSearchQuery] = useState("");
 
   const sortedKOLs = useMemo(
-    () => Object.values(kols).sort((left, right) => right.reliabilityScore - left.reliabilityScore),
+    () =>
+      Object.values(kols).sort((left, right) => {
+        if (right.reliabilityScore !== left.reliabilityScore) {
+          return right.reliabilityScore - left.reliabilityScore;
+        }
+        return (right.evaluatedCalls ?? 0) - (left.evaluatedCalls ?? 0);
+      }),
     [kols],
   );
 
@@ -38,7 +44,7 @@ export function AllKOLsPage({ kols }: AllKOLsPageProps) {
             All KOLs
           </h1>
           <p className="text-sm sm:text-base text-white/60">
-            Browse {sortedKOLs.length} monitored profiles
+            Browse and track {sortedKOLs.length} crypto commentators and analysts
           </p>
         </div>
 
@@ -46,7 +52,7 @@ export function AllKOLsPage({ kols }: AllKOLsPageProps) {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40 w-4 h-4 sm:w-5 sm:h-5" />
             <Input
-              placeholder="Search KOLs by name, handle, or category..."
+              placeholder="Search KOLs by name or handle..."
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
               className="pl-9 sm:pl-10 text-sm sm:text-base bg-black/20 border-white/10 text-white placeholder:text-white/40 backdrop-blur-sm"
@@ -71,7 +77,8 @@ export function AllKOLsPage({ kols }: AllKOLsPageProps) {
                     <span className="font-semibold text-sm sm:text-base text-white truncate">{kol.name}</span>
                   </div>
                   <div className="text-xs text-white/40 truncate">
-                    {kol.handle} - {kol.primaryAsset} - {kol.callCount} posts
+                    {kol.handle} - {kol.primaryAsset} - {kol.callCount} calls
+                    {kol.evaluatedCalls ? ` - ${kol.evaluatedCalls} evaluated` : ""}
                   </div>
                 </div>
                 <div className="text-right flex-shrink-0">

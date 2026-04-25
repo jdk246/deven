@@ -14,6 +14,15 @@ export interface KOL {
   followers: string;
   verified: boolean;
   callCount: number;
+  evaluatedCalls?: number;
+  hits?: number;
+  misses?: number;
+  hitRate?: number | null;
+  averageReturn24h?: number | null;
+  sampleSizeConfidence?: number | null;
+  scoreLabel?: string | null;
+  explanation?: string | null;
+  updatedAt?: string | null;
   primaryAsset?: string;
   walletAddress?: string;
   walletAddresses?: string[];
@@ -35,6 +44,10 @@ export interface Call {
   snippet: string;
   priceAtCall?: number;
   currentPrice?: number;
+  outcome?: "win" | "loss" | "pending" | "skipped";
+  priceWindow?: string | null;
+  returnPct?: number | null;
+  status?: string | null;
   sourceUrl?: string | null;
   chainId?: string | null;
   chainName?: string | null;
@@ -135,6 +148,20 @@ export interface KOLDetailView {
   kol: KOL;
   notes: string | null;
   trackedSince: string | null;
+  trackRecord: {
+    score: number;
+    label: string;
+    methodology: string;
+    disclaimer: string;
+    totalCalls: number;
+    evaluatedCalls: number;
+    hits: number;
+    misses: number;
+    hitRate: number | null;
+    averageReturn24h: number | null;
+    sampleSizeConfidence: number;
+    updatedAt: string | null;
+  };
   wallets: Array<{
     chainName: string;
     address: string;
@@ -143,6 +170,9 @@ export interface KOLDetailView {
     confidence: number | null;
     createdAt: string | null;
   }>;
+  callHistory: Call[];
+  evaluatedCallHistory: Call[];
+  pendingCallHistory: Call[];
   recentPosts: KOLPostView[];
   mentions: KOLMentionView[];
 }

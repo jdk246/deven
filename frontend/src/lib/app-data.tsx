@@ -12,6 +12,7 @@ import {
   fetchAgentHealth,
   fetchInsights,
   fetchKOLFeed,
+  fetchKOLRankings,
   fetchKOLs,
   fetchTokenList,
   fetchTrendingTokens,
@@ -41,7 +42,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     setError(null);
 
     try {
-      const [agentHealth, validation, tokenList, trending, insights, kols, feed] =
+      const [agentHealth, validation, tokenList, trending, insights, kols, kolRankings, feed] =
         await Promise.all([
           fetchAgentHealth(),
           fetchValidation(),
@@ -49,6 +50,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
           fetchTrendingTokens(50),
           fetchInsights(50),
           fetchKOLs(),
+          fetchKOLRankings(50),
           fetchKOLFeed(40),
         ]);
 
@@ -60,6 +62,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
           trending,
           insights,
           kols,
+          kolRankings,
           feed,
         }),
       );

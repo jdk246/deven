@@ -81,7 +81,7 @@ AGENT_EXAMPLES = [
         description="Explain why one KOL has a higher or lower historical alignment score.",
         endpoint="/api/agent/query",
         method="POST",
-        request_body={"message": "How has @macro_mina performed?", "debug": True},
+        request_body={"message": "How has @willy_woo_demo performed?", "debug": True},
         expected_response_shape=EXPECTED_QUERY_RESPONSE_SHAPE,
     ),
     AgentExampleItem(

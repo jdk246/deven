@@ -6,6 +6,10 @@ import type {
   KOLFeedItemResponse,
   KOLListItemResponse,
   KOLListResponse,
+  KOLRankingItemResponse,
+  KOLRankingsResponse,
+  KOLTrackRecordCallResponse,
+  KOLTrackRecordResponse,
   TokenDetailResponse,
   TokenListItemResponse,
   TokenListResponse,
@@ -46,6 +50,63 @@ function titleCase(value: string) {
 function safeName(name: string | null | undefined, fallback: string) {
   const trimmed = name?.trim();
   return trimmed || fallback;
+}
+
+const DEMO_KOL_ALIASES: Record<
+  string,
+  {
+    displayName: string;
+    uiHandle: string;
+  }
+> = {
+  macro_mina: { displayName: "Raoul Pal (Demo)", uiHandle: "@raoul_pal_demo" },
+  raoul_pal_demo: { displayName: "Raoul Pal (Demo)", uiHandle: "@raoul_pal_demo" },
+  onchain_omar: { displayName: "Willy Woo (Demo)", uiHandle: "@willy_woo_demo" },
+  willy_woo_demo: { displayName: "Willy Woo (Demo)", uiHandle: "@willy_woo_demo" },
+  sol_sage: { displayName: "Ansem (Demo)", uiHandle: "@ansem_demo" },
+  ansem_demo: { displayName: "Ansem (Demo)", uiHandle: "@ansem_demo" },
+  bsc_bella: { displayName: "Crypto Kaleo (Demo)", uiHandle: "@crypto_kaleo_demo" },
+  crypto_kaleo_demo: { displayName: "Crypto Kaleo (Demo)", uiHandle: "@crypto_kaleo_demo" },
+  base_beacon: { displayName: "Cobie (Demo)", uiHandle: "@cobie_demo" },
+  cobie_demo: { displayName: "Cobie (Demo)", uiHandle: "@cobie_demo" },
+  meme_marshal: { displayName: "Murad (Demo)", uiHandle: "@murad_demo" },
+  murad_demo: { displayName: "Murad (Demo)", uiHandle: "@murad_demo" },
+  defi_dahlia: { displayName: "Michael van de Poppe (Demo)", uiHandle: "@michael_vandepoppe_demo" },
+  michael_vandepoppe_demo: { displayName: "Michael van de Poppe (Demo)", uiHandle: "@michael_vandepoppe_demo" },
+  ai_arden: { displayName: "Alex Becker (Demo)", uiHandle: "@alex_becker_demo" },
+  alex_becker_demo: { displayName: "Alex Becker (Demo)", uiHandle: "@alex_becker_demo" },
+  wallet_wren: { displayName: "Loomdart (Demo)", uiHandle: "@loomdart_demo" },
+  loomdart_demo: { displayName: "Loomdart (Demo)", uiHandle: "@loomdart_demo" },
+  liquidity_luca: { displayName: "Daan Crypto Trades (Demo)", uiHandle: "@daan_crypto_demo" },
+  daan_crypto_demo: { displayName: "Daan Crypto Trades (Demo)", uiHandle: "@daan_crypto_demo" },
+  builder_brynn: { displayName: "Mert (Demo)", uiHandle: "@mert_demo" },
+  mert_demo: { displayName: "Mert (Demo)", uiHandle: "@mert_demo" },
+  risk_rhea: { displayName: "ZachXBT (Demo)", uiHandle: "@zachxbt_demo" },
+  zachxbt_demo: { displayName: "ZachXBT (Demo)", uiHandle: "@zachxbt_demo" },
+  narrative_niko: { displayName: "Pentoshi (Demo)", uiHandle: "@pentoshi_demo" },
+  pentoshi_demo: { displayName: "Pentoshi (Demo)", uiHandle: "@pentoshi_demo" },
+  flow_faiza: { displayName: "Arthur Hayes (Demo)", uiHandle: "@arthur_hayes_demo" },
+  arthur_hayes_demo: { displayName: "Arthur Hayes (Demo)", uiHandle: "@arthur_hayes_demo" },
+  token_tori: { displayName: "Altcoin Sherpa (Demo)", uiHandle: "@altcoin_sherpa_demo" },
+  altcoin_sherpa_demo: { displayName: "Altcoin Sherpa (Demo)", uiHandle: "@altcoin_sherpa_demo" },
+  chain_chase: { displayName: "Miles Deutscher (Demo)", uiHandle: "@miles_deutscher_demo" },
+  miles_deutscher_demo: { displayName: "Miles Deutscher (Demo)", uiHandle: "@miles_deutscher_demo" },
+  yield_yara: { displayName: "Crypto Cred (Demo)", uiHandle: "@crypto_cred_demo" },
+  crypto_cred_demo: { displayName: "Crypto Cred (Demo)", uiHandle: "@crypto_cred_demo" },
+  alpha_avery: { displayName: "EmperorBTC (Demo)", uiHandle: "@emperorbtc_demo" },
+  emperorbtc_demo: { displayName: "EmperorBTC (Demo)", uiHandle: "@emperorbtc_demo" },
+  chart_cedric: { displayName: "CrediBULL Crypto (Demo)", uiHandle: "@credibull_demo" },
+  credibull_demo: { displayName: "CrediBULL Crypto (Demo)", uiHandle: "@credibull_demo" },
+  dune_dara: { displayName: "Ki Young Ju (Demo)", uiHandle: "@ki_young_ju_demo" },
+  ki_young_ju_demo: { displayName: "Ki Young Ju (Demo)", uiHandle: "@ki_young_ju_demo" },
+};
+
+function resolveDemoKolIdentity(handle: string, displayName: string | null | undefined) {
+  const alias = DEMO_KOL_ALIASES[handle];
+  return {
+    name: alias?.displayName ?? safeName(displayName, titleCase(handle)),
+    uiHandle: alias?.uiHandle ?? `@${handle}`,
+  };
 }
 
 export function tokenKey(chainId: string, contractAddress: string) {
@@ -146,6 +207,18 @@ function buildFollowersLabel(item: KOLListItemResponse) {
   return `${item.post_count} tracked post${item.post_count === 1 ? "" : "s"}`;
 }
 
+function buildTrackRecordLabel(ranking: KOLRankingItemResponse | undefined, fallback: string) {
+  if (!ranking) {
+    return fallback;
+  }
+
+  if (ranking.evaluated_calls > 0) {
+    return `${ranking.evaluated_calls} evaluated call${ranking.evaluated_calls === 1 ? "" : "s"}`;
+  }
+
+  return `${ranking.total_calls} tracked call${ranking.total_calls === 1 ? "" : "s"}`;
+}
+
 function derivePrimaryAsset(category: string | null | undefined, fallback = "Market watch") {
   if (!category) {
     return fallback;
@@ -212,24 +285,35 @@ function buildAssetFromTokenListItem(
   };
 }
 
-function buildKolFromListItem(item: KOLListItemResponse, dataMode: "seed" | "live"): KOL {
-  const name = safeName(item.display_name, titleCase(item.handle));
-  const score = buildKolScore(
-    item.priority,
-    item.post_count,
-    item.resolved_mention_count,
-  );
+function buildKolFromListItem(
+  item: KOLListItemResponse,
+  dataMode: "seed" | "live",
+  ranking?: KOLRankingItemResponse,
+): KOL {
+  const identity = resolveDemoKolIdentity(item.handle, item.display_name);
+  const name = identity.name;
+  const fallbackScore = buildKolScore(item.priority, item.post_count, item.resolved_mention_count);
+  const score = Math.round(ranking?.track_record_score ?? fallbackScore);
 
   return {
     id: item.handle,
     name,
-    handle: `@${item.handle}`,
+    handle: identity.uiHandle,
     initials: buildInitials(name),
     reliabilityScore: score,
     tier: toTier(score),
-    followers: buildFollowersLabel(item),
+    followers: buildTrackRecordLabel(ranking, buildFollowersLabel(item)),
     verified: false,
-    callCount: item.post_count,
+    callCount: ranking?.total_calls ?? item.post_count,
+    evaluatedCalls: ranking?.evaluated_calls ?? 0,
+    hits: ranking?.hits ?? 0,
+    misses: ranking?.misses ?? 0,
+    hitRate: ranking?.hit_rate ?? null,
+    averageReturn24h: ranking?.average_return_24h ?? null,
+    sampleSizeConfidence: ranking?.sample_size_confidence ?? null,
+    scoreLabel: ranking?.label ?? "Insufficient Sample",
+    explanation: ranking?.explanation ?? null,
+    updatedAt: ranking?.updated_at ?? null,
     primaryAsset: derivePrimaryAsset(item.category),
     walletCount: 0,
     dataMode,
@@ -298,6 +382,7 @@ export function adaptAppSnapshot(input: {
   trending: { items: TrendingTokenResponse[]; available_chains: ChainOptionResponse[] };
   insights: { items: InsightItemResponse[] };
   kols: KOLListResponse;
+  kolRankings: KOLRankingsResponse;
   feed: { items: KOLFeedItemResponse[] };
 }): AppSnapshot {
   const trendingByKey = new Map(
@@ -329,8 +414,15 @@ export function adaptAppSnapshot(input: {
     return rightCap - leftCap;
   });
 
+  const rankingsByHandle = new Map(
+    input.kolRankings.items.map((item) => [item.handle, item]),
+  );
+
   const kols = Object.fromEntries(
-    input.kols.items.map((item) => [item.handle, buildKolFromListItem(item, input.kols.data_mode)]),
+    input.kols.items.map((item) => [
+      item.handle,
+      buildKolFromListItem(item, input.kols.data_mode, rankingsByHandle.get(item.handle)),
+    ]),
   );
 
   const feed = input.feed.items.map((item) => buildFeedCall(item, assets));
@@ -427,26 +519,106 @@ function mapMention(mention: {
   };
 }
 
-export function adaptKolDetail(detail: KOLDetailResponse): KOLDetailView {
+function getOutcomeLabel(call: KOLTrackRecordCallResponse): Call["outcome"] {
+  if (call.evaluation_status === "evaluated") {
+    return call.is_hit ? "win" : "loss";
+  }
+
+  if (call.evaluation_status === "skipped_neutral") {
+    return "skipped";
+  }
+
+  return "pending";
+}
+
+function getWindowPrice(call: KOLTrackRecordCallResponse) {
+  switch (call.primary_window) {
+    case "1h":
+      return call.price_1h;
+    case "6h":
+      return call.price_6h;
+    case "24h":
+      return call.price_24h;
+    case "7d":
+      return call.price_7d;
+    default:
+      return call.price_24h ?? call.price_6h ?? call.price_1h ?? call.price_7d ?? null;
+  }
+}
+
+function mapTrackRecordCall(
+  call: KOLTrackRecordCallResponse,
+  postsById: Map<number, KOLDetailResponse["recent_posts"][number]>,
+): Call {
+  const matchedPost = postsById.get(call.post_id);
+  const symbol = call.token_symbol ?? call.symbol_text ?? "WATCH";
+
+  return {
+    id: String(call.call_id),
+    kolId: "",
+    asset: call.token_name ?? symbol,
+    symbol,
+    type: toSignalType(call.direction),
+    timestamp: call.post_created_at,
+    snippet: matchedPost?.text ?? `${symbol} mention tracked for historical alignment.`,
+    priceAtCall: call.price_at_post ?? undefined,
+    currentPrice: getWindowPrice(call) ?? undefined,
+    outcome: getOutcomeLabel(call),
+    priceWindow: call.primary_window,
+    returnPct: call.primary_return !== null && call.primary_return !== undefined
+      ? call.primary_return * 100
+      : null,
+    status: call.evaluation_status,
+    chainId: call.chain_id,
+    chainName: call.chain_name,
+    contractAddress: call.contract_address,
+    sourceUrl: matchedPost?.url ?? null,
+  };
+}
+
+export function adaptKolDetail(
+  detail: KOLDetailResponse,
+  trackRecord?: KOLTrackRecordResponse,
+): KOLDetailView {
   const resolvedMentionCount = detail.mentions.filter((mention) => mention.is_resolved).length;
-  const score = buildKolScore(
+  const fallbackScore = buildKolScore(
     detail.profile.priority,
     detail.recent_posts.length,
     resolvedMentionCount,
   );
-  const name = safeName(detail.profile.display_name, titleCase(detail.profile.handle));
+  const score = Math.round(trackRecord?.score.track_record_score ?? fallbackScore);
+  const identity = resolveDemoKolIdentity(detail.profile.handle, detail.profile.display_name);
+  const name = identity.name;
   const primaryMention = detail.mentions.find((mention) => mention.symbol_text)?.symbol_text;
+  const postsById = new Map(detail.recent_posts.map((post) => [post.id, post]));
 
   const kol: KOL = {
     id: detail.profile.handle,
     name,
-    handle: `@${detail.profile.handle}`,
+    handle: identity.uiHandle,
     initials: buildInitials(name),
     reliabilityScore: score,
     tier: toTier(score),
-    followers: `${detail.recent_posts.length} recent post${detail.recent_posts.length === 1 ? "" : "s"}`,
+    followers:
+      trackRecord && trackRecord.score.evaluated_calls > 0
+        ? `${trackRecord.score.evaluated_calls} evaluated call${
+            trackRecord.score.evaluated_calls === 1 ? "" : "s"
+          }`
+        : `${detail.recent_posts.length} recent post${detail.recent_posts.length === 1 ? "" : "s"}`,
     verified: false,
-    callCount: detail.recent_posts.length,
+    callCount: trackRecord?.score.total_calls ?? detail.recent_posts.length,
+    evaluatedCalls: trackRecord?.score.evaluated_calls ?? 0,
+    hits: trackRecord?.score.hits ?? 0,
+    misses: trackRecord?.score.misses ?? 0,
+    hitRate: trackRecord?.score.hit_rate ?? null,
+    averageReturn24h: trackRecord?.score.average_return_24h ?? null,
+    sampleSizeConfidence: trackRecord?.score.sample_size_confidence ?? null,
+    scoreLabel: trackRecord?.score.label ?? "Insufficient Sample",
+    explanation:
+      trackRecord?.score.evaluated_calls && trackRecord.score.evaluated_calls > 0
+        ? `${trackRecord.score.hits} aligned and ${trackRecord.score.misses} misaligned evaluated calls in the tracked dataset.`
+        : "Not enough evaluated directional calls yet to draw a strong historical alignment view.",
+    updatedAt: trackRecord?.score.updated_at ?? null,
     primaryAsset: primaryMention ?? derivePrimaryAsset(detail.profile.category),
     walletAddress: undefined,
     walletAddresses: [],
@@ -481,6 +653,29 @@ export function adaptKolDetail(detail: KOLDetailResponse): KOLDetailView {
     wallets: [],
     recentPosts,
     mentions: detail.mentions.map(mapMention),
+    trackRecord: {
+      score,
+      label: trackRecord?.score.label ?? "Insufficient Sample",
+      methodology:
+        trackRecord?.methodology ??
+        "KOL rankings are based on post-event token movement after tracked KOL mentions. They are correlation-based, sample-size adjusted, and not financial advice.",
+      disclaimer:
+        trackRecord?.disclaimer ??
+        "This is correlation-based market research only and not financial advice.",
+      totalCalls: trackRecord?.score.total_calls ?? detail.recent_posts.length,
+      evaluatedCalls: trackRecord?.score.evaluated_calls ?? 0,
+      hits: trackRecord?.score.hits ?? 0,
+      misses: trackRecord?.score.misses ?? 0,
+      hitRate: trackRecord?.score.hit_rate ?? null,
+      averageReturn24h: trackRecord?.score.average_return_24h ?? null,
+      sampleSizeConfidence: trackRecord?.score.sample_size_confidence ?? 0,
+      updatedAt: trackRecord?.score.updated_at ?? null,
+    },
+    callHistory: trackRecord?.recent_calls.map((call) => mapTrackRecordCall(call, postsById)) ?? [],
+    evaluatedCallHistory:
+      trackRecord?.evaluated_calls.items.map((call) => mapTrackRecordCall(call, postsById)) ?? [],
+    pendingCallHistory:
+      trackRecord?.pending_calls.items.map((call) => mapTrackRecordCall(call, postsById)) ?? [],
   };
 }
 
