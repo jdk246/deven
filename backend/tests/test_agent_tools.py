@@ -13,10 +13,13 @@ from app.agent_tools.registry import ToolRegistry
 from app.agent_tools.database_context_tools import (
     get_data_mode_status,
     get_high_risk_tokens,
+    get_kol_call_examples,
+    get_kol_track_record,
     get_kol_summary,
     get_latest_insight,
     get_token_context,
     get_trending_token_context,
+    rank_kols_by_track_record,
     search_kol_mentions,
 )
 from app.clients.binance_skills import BinanceSkillsResult
@@ -106,6 +109,9 @@ def test_tool_registry_lists_all_required_tools(db_session) -> None:
         "get_latest_insight",
         "get_high_risk_tokens",
         "get_data_mode_status",
+        "rank_kols_by_track_record",
+        "get_kol_track_record",
+        "get_kol_call_examples",
     }.issubset(tool_names)
 
 
@@ -203,13 +209,20 @@ def test_internal_database_context_tools_return_empty_status_in_empty_db(db_sess
             await get_latest_insight(db=db_session, chain_id="56", contract_address="0x1"),
             await get_high_risk_tokens(db=db_session),
             await get_data_mode_status(db=db_session),
+            await rank_kols_by_track_record(db=db_session),
+            await get_kol_track_record(db=db_session, handle="missing"),
+            await get_kol_call_examples(db=db_session),
         ]
 
     results = asyncio.run(runner())
 
-    for result in results[:-1]:
+    for result in results[:-4]:
         _assert_agent_tool_shape(result)
         assert result.status == "empty"
 
-    _assert_agent_tool_shape(results[-1])
-    assert results[-1].status == "ok"
+    _assert_agent_tool_shape(results[-4])
+    assert results[-4].status == "ok"
+
+    for result in results[-3:]:
+        _assert_agent_tool_shape(result)
+        assert result.status == "empty"

@@ -7,6 +7,7 @@ from app.schemas import AdminRefreshRequest, AdminRefreshResponse, BackendValida
 from app.services.backend_validation import BackendValidationService
 from app.services.insight_generation import InsightGenerationService
 from app.services.kol_ingestion import KOLIngestionService
+from app.services.kol_performance import KOLPerformanceService
 from app.services.market_ingestion import (
     SUPPORTED_CHAINS,
     MarketIngestionService,
@@ -28,6 +29,7 @@ async def refresh_market(
     market_jobs = [job for job in requested_jobs if job in MARKET_REFRESH_JOBS]
     should_run_kols = "kols" in requested_jobs
     should_run_insights = "insights" in requested_jobs
+    should_run_kol_performance = "kol_performance" in requested_jobs
 
     if market_jobs:
         async with BinanceSkillsClient() as binance_client:
@@ -41,7 +43,9 @@ async def refresh_market(
         result = _build_empty_refresh_response(payload)
 
     result["jobs"] = [
-        job for job in requested_jobs if job in MARKET_REFRESH_JOBS or job in {"kols", "insights"}
+        job
+        for job in requested_jobs
+        if job in MARKET_REFRESH_JOBS or job in {"kols", "insights", "kol_performance"}
     ]
 
     if should_run_kols:
@@ -55,7 +59,20 @@ async def refresh_market(
             limit_per_chain=payload.limit_per_chain,
         )
 
+    if should_run_kol_performance:
+        kol_performance_service = KOLPerformanceService(db=db)
+        result["kol_performance_summary"] = kol_performance_service.refresh_kol_performance()
+
     return AdminRefreshResponse(**result)
+
+
+@router.post("/refresh-kol-performance")
+def refresh_kol_performance(db: Session = Depends(get_db)) -> dict:
+    summary = KOLPerformanceService(db=db).refresh_kol_performance()
+    return {
+        "status": "ok",
+        **summary,
+    }
 
 
 @router.get("/validate", response_model=BackendValidationResponse)

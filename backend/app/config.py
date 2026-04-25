@@ -65,20 +65,40 @@ class Settings(BaseSettings):
     @field_validator("cors_origins", mode="before")
     @classmethod
     def parse_cors_origins(cls, value: Any) -> list[str]:
+        def normalize_loopback_origins(origins: list[str]) -> list[str]:
+            normalized: list[str] = []
+
+            def add(origin: str) -> None:
+                if origin and origin not in normalized:
+                    normalized.append(origin)
+
+            for origin in origins:
+                add(origin)
+
+                if origin == "http://localhost:5173":
+                    add("http://127.0.0.1:5173")
+                elif origin == "http://127.0.0.1:5173":
+                    add("http://localhost:5173")
+
+            return normalized
+
         if value is None or value == "":
-            return ["http://localhost:5173"]
+            return normalize_loopback_origins(["http://localhost:5173"])
 
         if isinstance(value, str):
             raw_value = value.strip()
 
             if raw_value.startswith("["):
                 parsed_value = loads(raw_value)
-                return [item.strip() for item in parsed_value if item.strip()]
+                parsed_origins = [item.strip() for item in parsed_value if item.strip()]
+                return normalize_loopback_origins(parsed_origins)
 
-            return [item.strip() for item in raw_value.split(",") if item.strip()]
+            parsed_origins = [item.strip() for item in raw_value.split(",") if item.strip()]
+            return normalize_loopback_origins(parsed_origins)
 
         if isinstance(value, list):
-            return [str(item).strip() for item in value if str(item).strip()]
+            parsed_origins = [str(item).strip() for item in value if str(item).strip()]
+            return normalize_loopback_origins(parsed_origins)
 
         raise ValueError("Invalid BACKEND_CORS_ORIGINS value")
 

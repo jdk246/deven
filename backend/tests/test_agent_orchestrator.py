@@ -257,6 +257,7 @@ def _seed_agent_tokens(db_session) -> None:
     ("question", "chain_id", "expected_tools"),
     [
         ("Which tokens are trending?", None, {"crypto_market_rank", "get_trending_token_context"}),
+        ("Which tokens are trending right now?", None, {"crypto_market_rank", "get_trending_token_context"}),
         ("Why is BNB trending?", "56", {"query_token_info", "query_token_audit", "search_kol_mentions", "get_latest_insight"}),
         ("Which tokens look risky?", None, {"get_high_risk_tokens"}),
         ("Which KOLs mentioned SOL?", None, {"search_kol_mentions", "get_kol_summary"}),

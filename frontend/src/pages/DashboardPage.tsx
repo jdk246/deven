@@ -1,0 +1,364 @@
+import {
+  Activity,
+  AlertCircle,
+  ArrowUpRight,
+  Bot,
+  Shield,
+  TrendingDown,
+  TrendingUp,
+  Users,
+} from "lucide-react";
+import { useNavigate } from "react-router-dom";
+
+import { Avatar } from "../components/Avatar";
+import { GlassCard } from "../components/GlassCard";
+import { ScorePill } from "../components/ScorePill";
+import type { AssetData, Call, KOL, ValidationState } from "../types";
+
+interface DashboardPageProps {
+  calls: Call[];
+  kols: Record<string, KOL>;
+  assets: Record<string, AssetData>;
+  validationStatus: ValidationState;
+}
+
+function formatTimestamp(timestamp: string) {
+  const date = new Date(timestamp);
+  const now = new Date();
+  const diff = now.getTime() - date.getTime();
+  const hours = Math.floor(diff / (1000 * 60 * 60));
+  const minutes = Math.floor(diff / (1000 * 60));
+
+  if (minutes < 1) return "Just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
+export function DashboardPage({
+  calls,
+  kols,
+  assets,
+  validationStatus,
+}: DashboardPageProps) {
+  const navigate = useNavigate();
+
+  const recentCalls = [...calls]
+    .sort((left, right) => new Date(right.timestamp).getTime() - new Date(left.timestamp).getTime())
+    .slice(0, 5);
+
+  const assetList = Object.values(assets);
+  const topMovers = [...assetList]
+    .sort(
+      (left, right) => Math.abs(right.change24h ?? 0) - Math.abs(left.change24h ?? 0),
+    )
+    .slice(0, 4);
+
+  const topKOLs = Object.values(kols)
+    .sort((left, right) => right.reliabilityScore - left.reliabilityScore)
+    .slice(0, 3);
+
+  const riskyAssets = assetList.filter(
+    (asset) => asset.riskLevel === "high" || asset.label === "Weak / Risky",
+  );
+
+  const totalTracked = Object.keys(kols).length;
+  const totalAssets = assetList.length;
+  const avgScore = Math.round(
+    Object.values(kols).reduce((sum, kol) => sum + kol.reliabilityScore, 0) /
+      Math.max(1, totalTracked),
+  );
+  const insightReady = assetList.filter((asset) => asset.attentionScore !== null && asset.attentionScore !== undefined).length;
+
+  return (
+    <div className="min-h-screen text-white relative z-10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-10">
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-2 bg-gradient-to-r from-white to-purple-200 bg-clip-text text-transparent">
+            Dashboard
+          </h1>
+          <p className="text-sm sm:text-base text-white/60">
+            Current system snapshot across market, social, and risk context
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
+          <GlassCard className="p-4 sm:p-6">
+            <div className="flex items-center justify-between mb-2 sm:mb-3">
+              <div className="text-xs sm:text-sm text-white/60">KOL Profiles</div>
+              <Users className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
+            </div>
+            <div className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-white to-purple-200 bg-clip-text text-transparent">
+              {totalTracked}
+            </div>
+            <div className="text-xs text-white/40 mt-1">Curated social profiles</div>
+          </GlassCard>
+
+          <GlassCard className="p-4 sm:p-6">
+            <div className="flex items-center justify-between mb-2 sm:mb-3">
+              <div className="text-xs sm:text-sm text-white/60">Tracked Tokens</div>
+              <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-green-400" />
+            </div>
+            <div className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-white to-blue-200 bg-clip-text text-transparent">
+              {totalAssets}
+            </div>
+            <div className="text-xs text-white/40 mt-1">Across enabled chains</div>
+          </GlassCard>
+
+          <GlassCard className="p-4 sm:p-6">
+            <div className="flex items-center justify-between mb-2 sm:mb-3">
+              <div className="text-xs sm:text-sm text-white/60">Insights Ready</div>
+              <Bot className="w-4 h-4 sm:w-5 sm:h-5 text-violet-300" />
+            </div>
+            <div className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-white to-violet-200 bg-clip-text text-transparent">
+              {insightReady}
+            </div>
+            <div className="text-xs text-white/40 mt-1">Tokens with stored Attention Scores</div>
+          </GlassCard>
+
+          <GlassCard
+            className={`p-4 sm:p-6 ${
+              validationStatus === "pass"
+                ? "border-green-500/30 bg-gradient-to-r from-green-500/10 to-emerald-500/10"
+                : validationStatus === "warn"
+                  ? "border-amber-500/30 bg-gradient-to-r from-amber-500/10 to-orange-500/10"
+                  : "border-red-500/30 bg-gradient-to-r from-red-500/10 to-orange-500/10"
+            }`}
+          >
+            <div className="flex items-center justify-between mb-2 sm:mb-3">
+              <div
+                className={`text-xs sm:text-sm ${
+                  validationStatus === "pass"
+                    ? "text-green-300"
+                    : validationStatus === "warn"
+                      ? "text-amber-300"
+                      : "text-red-300"
+                }`}
+              >
+                Validation
+              </div>
+              <Shield className="w-4 h-4 sm:w-5 sm:h-5 text-white/80" />
+            </div>
+            <div className="text-2xl sm:text-3xl font-bold text-white">
+              {validationStatus.toUpperCase()}
+            </div>
+            <div className="text-xs text-white/50 mt-1">Backend demo readiness</div>
+          </GlassCard>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
+          <div className="lg:col-span-2">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-semibold text-white/80 uppercase tracking-wide">
+                Recent Activity
+              </h2>
+              <button
+                onClick={() => navigate("/live")}
+                className="text-sm text-purple-400 hover:text-purple-300 font-medium transition-colors flex items-center gap-1"
+              >
+                View all
+                <ArrowUpRight className="w-4 h-4" />
+              </button>
+            </div>
+            <GlassCard>
+              {recentCalls.map((call) => {
+                const kol = kols[call.kolId];
+                if (!kol) return null;
+
+                return (
+                  <div
+                    key={call.id}
+                    className="p-4 border-b border-white/5 last:border-b-0 hover:bg-white/5 cursor-pointer transition-all duration-300"
+                    onClick={() => navigate(`/kol/${kol.id}`)}
+                  >
+                    <div className="flex items-start gap-3">
+                      <Avatar initials={kol.initials} size="sm" tier={kol.tier} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-semibold text-white text-sm">{kol.name}</span>
+                          <span className="text-xs text-white/40">{formatTimestamp(call.timestamp)}</span>
+                        </div>
+                        <p className="text-xs text-white/70 mb-2">{call.snippet}</p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {call.chainId && call.contractAddress ? (
+                            <button
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                navigate(
+                                  `/market/${encodeURIComponent(call.chainId!)}/${encodeURIComponent(call.contractAddress!)}`,
+                                );
+                              }}
+                              className="px-2 py-0.5 bg-purple-500/20 border border-purple-500/30 rounded text-xs text-purple-300 font-medium hover:bg-purple-500/30 transition-colors"
+                            >
+                              {call.symbol}
+                            </button>
+                          ) : (
+                            <span className="px-2 py-0.5 bg-white/5 border border-white/10 rounded text-xs text-white/70">
+                              {call.symbol}
+                            </span>
+                          )}
+                          <span className="text-xs text-white/40 capitalize">{call.type}</span>
+                          {call.chainName ? (
+                            <span className="text-xs text-white/40">{call.chainName}</span>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </GlassCard>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-semibold text-white/80 uppercase tracking-wide">
+                Top Profiles
+              </h2>
+              <button
+                onClick={() => navigate("/kols")}
+                className="text-sm text-purple-400 hover:text-purple-300 font-medium transition-colors flex items-center gap-1"
+              >
+                View all
+                <ArrowUpRight className="w-4 h-4" />
+              </button>
+            </div>
+            <GlassCard>
+              {topKOLs.map((kol) => (
+                <div
+                  key={kol.id}
+                  className="p-4 border-b border-white/5 last:border-b-0 hover:bg-white/5 cursor-pointer transition-all duration-300"
+                  onClick={() => navigate(`/kol/${kol.id}`)}
+                >
+                  <div className="flex items-center gap-3">
+                    <Avatar initials={kol.initials} size="sm" tier={kol.tier} />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold text-white text-sm mb-0.5">{kol.name}</div>
+                      <div className="text-xs text-white/40">
+                        {kol.primaryAsset} - {kol.callCount} posts
+                      </div>
+                    </div>
+                    <ScorePill score={kol.reliabilityScore} tier={kol.tier} size="sm" />
+                  </div>
+                </div>
+              ))}
+            </GlassCard>
+            <div className="mt-4">
+              <GlassCard className="p-4">
+                <div className="text-xs text-white/60 mb-1">Average profile signal</div>
+                <div className="text-2xl font-bold text-white">{avgScore}%</div>
+                <div className="text-xs text-white/40 mt-1">
+                  Frontend heuristic based on curation priority, post coverage, and resolved mentions
+                </div>
+              </GlassCard>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-semibold text-white/80 uppercase tracking-wide">
+                Top Movers (24h)
+              </h2>
+              <button
+                onClick={() => navigate("/markets")}
+                className="text-sm text-purple-400 hover:text-purple-300 font-medium transition-colors flex items-center gap-1"
+              >
+                View all
+                <ArrowUpRight className="w-4 h-4" />
+              </button>
+            </div>
+            <GlassCard>
+              {topMovers.map((asset) => {
+                const isPositive = (asset.change24h ?? 0) > 0;
+                return (
+                  <div
+                    key={asset.key}
+                    className="p-4 border-b border-white/5 last:border-b-0 hover:bg-white/5 cursor-pointer transition-all duration-300"
+                    onClick={() =>
+                      navigate(
+                        `/market/${encodeURIComponent(asset.chainId)}/${encodeURIComponent(asset.contractAddress)}`,
+                      )
+                    }
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center text-white font-bold text-sm shadow-lg shadow-purple-500/50">
+                        {asset.symbol.substring(0, 3)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-white text-sm mb-0.5">{asset.name}</div>
+                        <div className="text-xs text-white/40">
+                          {asset.symbol} - {asset.chainShortName}
+                        </div>
+                      </div>
+                      <div
+                        className={`flex items-center gap-1 text-sm font-semibold ${
+                          isPositive ? "text-green-400" : "text-red-400"
+                        }`}
+                      >
+                        {isPositive ? (
+                          <TrendingUp className="w-4 h-4" />
+                        ) : (
+                          <TrendingDown className="w-4 h-4" />
+                        )}
+                        {isPositive ? "+" : ""}
+                        {(asset.change24h ?? 0).toFixed(2)}%
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </GlassCard>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-semibold text-red-300 uppercase tracking-wide flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-red-400 animate-pulse"></div>
+                Attention Flags
+              </h2>
+              <span className="text-xs text-white/40 uppercase tracking-wide">
+                {riskyAssets.length} current
+              </span>
+            </div>
+            <GlassCard className="border-red-500/30 bg-gradient-to-r from-red-500/10 to-pink-500/10">
+              {riskyAssets.length > 0 ? (
+                riskyAssets.slice(0, 4).map((asset) => (
+                  <div
+                    key={asset.key}
+                    className="p-4 border-b border-white/5 last:border-b-0 hover:bg-white/5 cursor-pointer transition-all duration-300"
+                    onClick={() =>
+                      navigate(
+                        `/market/${encodeURIComponent(asset.chainId)}/${encodeURIComponent(asset.contractAddress)}`,
+                      )
+                    }
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0 border border-red-500/30">
+                        <AlertCircle className="w-4 h-4 text-red-400" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm text-white/90 mb-1">
+                          <span className="font-semibold text-white">{asset.symbol}</span> is currently flagged as{" "}
+                          {asset.label ?? asset.riskLevel ?? "higher risk"}
+                        </p>
+                        <p className="text-xs text-white/60">
+                          {asset.chainName} - Attention {asset.attentionScore?.toFixed(1) ?? "N/A"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="p-4 text-sm text-white/70">
+                  No high-risk tokens are currently highlighted in the local snapshot.
+                </div>
+              )}
+            </GlassCard>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -68,6 +68,30 @@ AGENT_EXAMPLES = [
         request_body={"message": "Which KOLs mentioned SOL?", "debug": True},
         expected_response_shape=EXPECTED_QUERY_RESPONSE_SHAPE,
     ),
+    AgentExampleItem(
+        title="KOL Rankings",
+        description="Rank tracked KOLs by sample-size-adjusted historical alignment after bullish and bearish mentions.",
+        endpoint="/api/agent/query",
+        method="POST",
+        request_body={"message": "Which KOLs have the best track record?", "debug": True},
+        expected_response_shape=EXPECTED_QUERY_RESPONSE_SHAPE,
+    ),
+    AgentExampleItem(
+        title="Explain A KOL Score",
+        description="Explain why one KOL has a higher or lower historical alignment score.",
+        endpoint="/api/agent/query",
+        method="POST",
+        request_body={"message": "How has @macro_mina performed?", "debug": True},
+        expected_response_shape=EXPECTED_QUERY_RESPONSE_SHAPE,
+    ),
+    AgentExampleItem(
+        title="KOL Ranking Methodology",
+        description="Ask how KOL rankings are computed and what their limitations are.",
+        endpoint="/api/agent/query",
+        method="POST",
+        request_body={"message": "How do you calculate KOL rankings?", "debug": True},
+        expected_response_shape=EXPECTED_QUERY_RESPONSE_SHAPE,
+    ),
 ]
 
 

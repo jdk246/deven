@@ -8,6 +8,7 @@ from app.agent_tools.registry import ToolRegistry
 from app.clients.binance_skills import BinanceSkillsResult
 from app.services.insight_generation import InsightGenerationService
 from app.services.kol_ingestion import KOLIngestionService
+from app.services.kol_performance import KOLPerformanceService
 from app.services.market_ingestion import MarketIngestionService
 from tests.helpers import make_agent_tool_result
 
@@ -326,10 +327,12 @@ def test_backend_e2e_smoke_without_internet(db_session, api_client) -> None:
         limit_per_chain=5,
         persist=True,
     )
+    kol_performance_summary = KOLPerformanceService(db_session).refresh_kol_performance()
 
     assert market_summary["status"] == "ok"
     assert kol_summary["profiles_seen"] >= 20
     assert insight_summary["insights_created"] >= 5
+    assert "calls_created" in kol_performance_summary
 
     original_call_tool = ToolRegistry.call_tool
 
@@ -376,6 +379,7 @@ def test_backend_e2e_smoke_without_internet(db_session, api_client) -> None:
             json={"message": "Why is BNB trending?", "chain_id": "56", "debug": True},
         )
         kols_response = api_client.get("/api/kols")
+        rankings_response = api_client.get("/api/kols/rankings")
         insights_response = api_client.get("/api/insights?limit=10")
 
     assert health_response.status_code == 200
@@ -386,12 +390,12 @@ def test_backend_e2e_smoke_without_internet(db_session, api_client) -> None:
 
     tools_payload = tools_response.json()
     assert tools_response.status_code == 200
-    assert len(tools_payload["items"]) >= 10
+    assert len(tools_payload["items"]) >= 15
 
     validation_payload = validate_response.json()
     assert validate_response.status_code == 200
     assert validation_payload["status"] in {"pass", "warn"}
-    assert len(validation_payload["checks"]) == 10
+    assert len(validation_payload["checks"]) == 14
 
     chat_payload = chat_response.json()
     assert chat_response.status_code == 200
@@ -401,6 +405,11 @@ def test_backend_e2e_smoke_without_internet(db_session, api_client) -> None:
     kols_payload = kols_response.json()
     assert kols_response.status_code == 200
     assert len(kols_payload["items"]) >= 20
+
+    rankings_payload = rankings_response.json()
+    assert rankings_response.status_code == 200
+    assert "items" in rankings_payload
+    assert "methodology" in rankings_payload
 
     insights_payload = insights_response.json()
     assert insights_response.status_code == 200

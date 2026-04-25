@@ -122,6 +122,12 @@ curl -sS "http://127.0.0.1:8000/api/agent/tools"
 Frontend usage notes:
 Good for admin/debug views and for any client that wants to inspect available capabilities before calling the agent.
 
+Notable KOL performance tools now included in this list:
+
+- `rank_kols_by_track_record`
+- `get_kol_track_record`
+- `get_kol_call_examples`
+
 ## `GET /api/agent/examples`
 
 Purpose:
@@ -172,7 +178,7 @@ curl -sS "http://127.0.0.1:8000/api/agent/examples"
 ```
 
 Frontend usage notes:
-Use this to seed quick-start prompts, onboarding examples, or external API docs.
+Use this to seed quick-start prompts, onboarding examples, or external API docs. The examples now include KOL rankings, KOL score explanation, and KOL ranking methodology prompts.
 
 ## `POST /api/agent/query`
 
@@ -391,6 +397,62 @@ curl -sS "http://127.0.0.1:8000/api/kols"
 Frontend usage notes:
 Use this for KOL directory pages and filters. The payload is intentionally lightweight.
 
+## `GET /api/kols/rankings`
+
+Purpose:
+Return KOL rankings based on historical post-event alignment after tracked token mentions.
+
+Method:
+`GET`
+
+Path:
+`/api/kols/rankings`
+
+Query params:
+
+- `limit` (optional, default `20`, max `100`)
+- `min_evaluated_calls` (optional)
+- `include_insufficient` (optional boolean, default `true`)
+
+Request body:
+None.
+
+Response shape:
+
+```json
+{
+  "items": [
+    {
+      "kol_id": 1,
+      "handle": "alpha_calls",
+      "display_name": "Alpha Calls",
+      "category": "macro",
+      "track_record_score": 67.4,
+      "label": "Positive Historical Alignment",
+      "total_calls": 12,
+      "evaluated_calls": 9,
+      "hits": 6,
+      "misses": 3,
+      "hit_rate": 0.667,
+      "average_return_24h": 0.032,
+      "sample_size_confidence": 0.6,
+      "explanation": "This KOL currently has a positive historical alignment score based on evaluated bullish and bearish token mentions, and the sample size is still moderate.",
+      "updated_at": "2026-04-26T00:00:00Z"
+    }
+  ],
+  "methodology": "KOL rankings are based on post-event token movement after tracked KOL mentions. They are correlation-based, sample-size adjusted, and not financial advice."
+}
+```
+
+Curl example:
+
+```bash
+curl -sS "http://127.0.0.1:8000/api/kols/rankings?limit=20&include_insufficient=true"
+```
+
+Frontend usage notes:
+Use this for KOL leaderboard views, analyst profile cards, and any explanation UI that needs sample-size-adjusted historical alignment rather than wallet evidence.
+
 ## `GET /api/kols/{handle}`
 
 Purpose:
@@ -427,6 +489,68 @@ curl -sS "http://127.0.0.1:8000/api/kols/macro_mina"
 
 Frontend usage notes:
 Use this for KOL profile detail views. Handles may be passed with or without `@` on the caller side, but the API path itself should use the normalized handle string.
+
+## `GET /api/kols/{handle}/track-record`
+
+Purpose:
+Return one KOL profile with its current historical alignment score plus evaluated and pending call detail.
+
+Method:
+`GET`
+
+Path:
+`/api/kols/{handle}/track-record`
+
+Query params:
+None.
+
+Request body:
+None.
+
+Response shape:
+
+```json
+{
+  "profile": {
+    "kol_id": 1,
+    "handle": "alpha_calls",
+    "display_name": "Alpha Calls",
+    "category": "macro",
+    "priority": 1,
+    "notes": "Synthetic positive alignment history for tests."
+  },
+  "score": {
+    "window": "24h",
+    "track_record_score": 67.4,
+    "label": "Positive Historical Alignment",
+    "evaluated_calls": 9,
+    "hits": 6,
+    "misses": 3,
+    "hit_rate": 0.667,
+    "sample_size_confidence": 0.6
+  },
+  "recent_calls": [],
+  "evaluated_calls": {
+    "count": 9,
+    "items": []
+  },
+  "pending_calls": {
+    "count": 2,
+    "items": []
+  },
+  "methodology": "KOL rankings are based on post-event token movement after tracked KOL mentions. They are correlation-based, sample-size adjusted, and not financial advice.",
+  "disclaimer": "This is correlation-based market research only and not financial advice."
+}
+```
+
+Curl example:
+
+```bash
+curl -sS "http://127.0.0.1:8000/api/kols/alpha_calls/track-record"
+```
+
+Frontend usage notes:
+Use this for KOL profile drill-down pages, explanation drawers, and any UI that needs recent right/wrong call examples with careful wording.
 
 ## `GET /api/insights`
 
@@ -542,7 +666,7 @@ Request body:
 
 ```json
 {
-  "jobs": ["market", "audits", "smart_money", "kols", "insights"],
+  "jobs": ["market", "audits", "smart_money", "kols", "insights", "kol_performance"],
   "chains": ["56", "CT_501"],
   "limit_per_chain": 20
 }
@@ -559,6 +683,12 @@ Response shape:
   "summary": [],
   "kol_summary": {},
   "insight_summary": {},
+  "kol_performance_summary": {
+    "calls_created": 0,
+    "calls_evaluated": 0,
+    "scores_updated": 0,
+    "warnings": []
+  },
   "errors": []
 }
 ```
@@ -569,9 +699,47 @@ Curl example:
 curl -sS \
   -X POST \
   -H "Content-Type: application/json" \
-  -d '{"jobs":["market","audits","smart_money","kols","insights"],"chains":["56","CT_501"],"limit_per_chain":20}' \
+  -d '{"jobs":["market","audits","smart_money","kols","insights","kol_performance"],"chains":["56","CT_501"],"limit_per_chain":20}' \
   "http://127.0.0.1:8000/api/admin/refresh"
 ```
 
 Frontend usage notes:
 Keep this behind an admin-only control. It is useful for demo prep and manual refresh actions, but it is not a public-user workflow.
+
+## `POST /api/admin/refresh-kol-performance`
+
+Purpose:
+Rebuild KOL calls, evaluate post-event price movement, and recompute KOL historical alignment scores.
+
+Method:
+`POST`
+
+Path:
+`/api/admin/refresh-kol-performance`
+
+Query params:
+None.
+
+Request body:
+None.
+
+Response shape:
+
+```json
+{
+  "status": "ok",
+  "calls_created": 12,
+  "calls_evaluated": 9,
+  "scores_updated": 5,
+  "warnings": []
+}
+```
+
+Curl example:
+
+```bash
+curl -sS -X POST "http://127.0.0.1:8000/api/admin/refresh-kol-performance"
+```
+
+Frontend usage notes:
+Useful for admin/demo prep flows when you want to recompute KOL track records without rerunning the entire market ingestion pipeline.

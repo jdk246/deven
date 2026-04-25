@@ -12,8 +12,11 @@ from sqlalchemy.orm import Session
 from app.config import get_settings
 from app.models import (
     ChatLog,
+    KOLCall,
+    KOLCallPriceObservation,
     KOLPost,
     KOLProfile,
+    KOLTrackRecordScore,
     KOLWallet,
     SmartMoneySignal,
     Token,
@@ -23,6 +26,7 @@ from app.models import (
     TokenSnapshot,
 )
 from app.schemas import AgentToolResult
+from app.services.kol_performance import KOLPerformanceService
 from app.services.market_ingestion import SUPPORTED_CHAINS, build_chain_option
 
 SKILL_NAME = "internal_database_context"
@@ -590,6 +594,16 @@ async def get_data_mode_status(
             "token_mentions": _count_rows(db, TokenMention),
             "token_insights": _count_rows(db, TokenInsight),
             "chat_logs": _count_rows(db, ChatLog),
+            "kol_calls": _count_rows(db, KOLCall),
+            "evaluated_kol_calls": int(
+                db.execute(
+                    select(func.count())
+                    .select_from(KOLCallPriceObservation)
+                    .where(KOLCallPriceObservation.evaluation_status == "evaluated")
+                ).scalar_one()
+                or 0
+            ),
+            "kol_track_record_scores": _count_rows(db, KOLTrackRecordScore),
         }
         data = {
             "kol_data_mode": settings.kol_data_mode,
@@ -632,6 +646,125 @@ async def get_data_mode_status(
     except Exception as exc:
         return _error_result(
             tool_name="get_data_mode_status",
+            input_args=input_args,
+            error=str(exc),
+            started_at=started_at,
+        )
+
+
+async def rank_kols_by_track_record(
+    *,
+    db: Session,
+    limit: int = DEFAULT_LIMIT,
+    min_evaluated_calls: int | None = None,
+    include_insufficient: bool = True,
+) -> AgentToolResult:
+    safe_limit = _clamp_limit(limit)
+    safe_min_calls = None if min_evaluated_calls is None else max(0, int(min_evaluated_calls))
+    input_args = {
+        "limit": safe_limit,
+        "min_evaluated_calls": safe_min_calls,
+        "include_insufficient": include_insufficient,
+    }
+    started_at = time.perf_counter()
+
+    try:
+        payload = KOLPerformanceService(db).list_rankings(
+            limit=safe_limit,
+            min_evaluated_calls=safe_min_calls,
+            include_insufficient=include_insufficient,
+        )
+        items = payload.get("items") if isinstance(payload, dict) else None
+        return _finalize_result(
+            tool_name="rank_kols_by_track_record",
+            input_args=input_args,
+            data=payload,
+            started_at=started_at,
+            empty=not isinstance(items, list) or not items,
+        )
+    except Exception as exc:
+        return _error_result(
+            tool_name="rank_kols_by_track_record",
+            input_args=input_args,
+            error=str(exc),
+            started_at=started_at,
+        )
+
+
+async def get_kol_track_record(
+    *,
+    db: Session,
+    handle: str,
+) -> AgentToolResult:
+    normalized_handle = _normalize_handle(handle)
+    input_args = {
+        "handle": normalized_handle,
+    }
+    started_at = time.perf_counter()
+
+    try:
+        payload = KOLPerformanceService(db).get_track_record(handle=normalized_handle or "")
+        if payload is None:
+            return _empty_result(
+                tool_name="get_kol_track_record",
+                input_args=input_args,
+                data={"handle": normalized_handle, "profile": None},
+                started_at=started_at,
+            )
+
+        score = payload.get("score") if isinstance(payload, dict) else None
+        recent_calls = payload.get("recent_calls") if isinstance(payload, dict) else None
+        is_empty = not score and not recent_calls
+        return _finalize_result(
+            tool_name="get_kol_track_record",
+            input_args=input_args,
+            data=payload,
+            started_at=started_at,
+            empty=is_empty,
+        )
+    except Exception as exc:
+        return _error_result(
+            tool_name="get_kol_track_record",
+            input_args=input_args,
+            error=str(exc),
+            started_at=started_at,
+        )
+
+
+async def get_kol_call_examples(
+    *,
+    db: Session,
+    handle: str | None = None,
+    symbol: str | None = None,
+    limit: int = DEFAULT_LIMIT,
+) -> AgentToolResult:
+    safe_limit = _clamp_limit(limit)
+    normalized_handle = _normalize_handle(handle)
+    normalized_symbol = symbol.strip().upper() if isinstance(symbol, str) and symbol.strip() else None
+    input_args = {
+        "handle": normalized_handle,
+        "symbol": normalized_symbol,
+        "limit": safe_limit,
+    }
+    started_at = time.perf_counter()
+
+    try:
+        payload = KOLPerformanceService(db).get_call_examples(
+            handle=normalized_handle,
+            symbol=normalized_symbol,
+            limit=safe_limit,
+        )
+        items = payload.get("items") if isinstance(payload, dict) else None
+        return _finalize_result(
+            tool_name="get_kol_call_examples",
+            input_args=input_args,
+            data=payload,
+            started_at=started_at,
+            empty=not isinstance(items, list) or not items,
+        )
+    except Exception as exc:
+        return _error_result(
+            tool_name="get_kol_call_examples",
             input_args=input_args,
             error=str(exc),
             started_at=started_at,
@@ -1312,9 +1445,12 @@ def _now() -> datetime:
 __all__ = [
     "get_data_mode_status",
     "get_high_risk_tokens",
+    "get_kol_call_examples",
+    "get_kol_track_record",
     "get_kol_summary",
     "get_latest_insight",
     "get_token_context",
     "get_trending_token_context",
+    "rank_kols_by_track_record",
     "search_kol_mentions",
 ]

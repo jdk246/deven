@@ -7,8 +7,11 @@ from sqlalchemy.orm import Session
 
 from app.agent_tools.registry import ToolRegistry
 from app.models import (
+    KOLCall,
+    KOLCallPriceObservation,
     KOLPost,
     KOLProfile,
+    KOLTrackRecordScore,
     Token,
     TokenAudit,
     TokenInsight,
@@ -78,7 +81,7 @@ class BackendValidationService:
             ),
             self._threshold_check(
                 name="registered_agent_tools",
-                expected=10,
+                expected=15,
                 actual=len(tools),
                 fix_hint="Register missing tools in backend/app/agent_tools/registry.py.",
             ),
@@ -90,9 +93,49 @@ class BackendValidationService:
             ),
             self._threshold_check(
                 name="registered_internal_context_tools",
-                expected=6,
+                expected=10,
                 actual=len(internal_tools),
                 fix_hint="Register all internal database context tools in backend/app/agent_tools/registry.py.",
+            ),
+            self._warn_threshold_check(
+                name="kol_calls_count",
+                expected=10,
+                actual=self._count_rows(KOLCall),
+                fix_hint="Run POST /api/admin/refresh-kol-performance after KOL and market refresh jobs.",
+            ),
+            self._warn_threshold_check(
+                name="evaluated_kol_calls_count",
+                expected=5,
+                actual=int(
+                    self.db.execute(
+                        select(func.count())
+                        .select_from(KOLCallPriceObservation)
+                        .where(KOLCallPriceObservation.evaluation_status == "evaluated")
+                    ).scalar_one()
+                    or 0
+                ),
+                fix_hint="Refresh KOL performance after enough token snapshots exist for historical price windows.",
+            ),
+            self._warn_threshold_check(
+                name="kol_track_record_scores_count",
+                expected=5,
+                actual=self._count_rows(KOLTrackRecordScore),
+                fix_hint="Run POST /api/admin/refresh-kol-performance to compute per-KOL alignment scores.",
+            ),
+            self._warn_threshold_check(
+                name="kol_ranking_tools_registered_count",
+                expected=3,
+                actual=sum(
+                    1
+                    for tool in internal_tools
+                    if tool["name"]
+                    in {
+                        "rank_kols_by_track_record",
+                        "get_kol_track_record",
+                        "get_kol_call_examples",
+                    }
+                ),
+                fix_hint="Register the KOL ranking tools in backend/app/agent_tools/registry.py.",
             ),
         ]
 
@@ -120,6 +163,22 @@ class BackendValidationService:
         return BackendValidationCheck(
             name=name,
             status=status,
+            expected=expected,
+            actual=actual,
+            fix_hint=fix_hint,
+        )
+
+    def _warn_threshold_check(
+        self,
+        *,
+        name: str,
+        expected: int,
+        actual: int,
+        fix_hint: str,
+    ) -> BackendValidationCheck:
+        return BackendValidationCheck(
+            name=name,
+            status="pass" if actual >= expected else "warn",
             expected=expected,
             actual=actual,
             fix_hint=fix_hint,

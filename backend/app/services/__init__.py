@@ -4,6 +4,7 @@ from app.services.chat_agent import ChatAgentService
 from app.services.backend_validation import BackendValidationService
 from app.services.insight_generation import DeterministicInsight, InsightGenerationService
 from app.services.kol_ingestion import KOLIngestionService
+from app.services.kol_performance import KOLPerformanceService
 from app.services.market_ingestion import SUPPORTED_CHAINS, MarketIngestionService
 from app.services.openai_agent import OpenAIAgentService, get_agent_service
 from app.services.scoring import ATTENTION_SCORE_NAME, ScoringService, TokenScoreBreakdown
@@ -18,6 +19,7 @@ __all__ = [
     "DeterministicInsight",
     "InsightGenerationService",
     "KOLIngestionService",
+    "KOLPerformanceService",
     "ScoringService",
     "SUPPORTED_CHAINS",
     "MarketIngestionService",

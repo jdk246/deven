@@ -16,10 +16,13 @@ from app.agent_tools.binance_skill_tools import (
 from app.agent_tools.database_context_tools import (
     get_data_mode_status,
     get_high_risk_tokens,
+    get_kol_call_examples,
+    get_kol_track_record,
     get_kol_summary,
     get_latest_insight,
     get_token_context,
     get_trending_token_context,
+    rank_kols_by_track_record,
     search_kol_mentions,
 )
 from app.clients import BinanceSkillsClient
@@ -247,6 +250,40 @@ def _default_tool_definitions() -> list[RegisteredTool]:
             input_schema={},
             output_schema=_TOOL_OUTPUT_SCHEMA,
             callable=get_data_mode_status,
+        ),
+        RegisteredTool(
+            name="rank_kols_by_track_record",
+            category="internal_context",
+            description="Rank KOLs by post-event historical alignment over tracked token mentions.",
+            input_schema={
+                "limit": "integer",
+                "min_evaluated_calls": "integer|null",
+                "include_insufficient": "boolean",
+            },
+            output_schema=_TOOL_OUTPUT_SCHEMA,
+            callable=rank_kols_by_track_record,
+        ),
+        RegisteredTool(
+            name="get_kol_track_record",
+            category="internal_context",
+            description="Read a detailed KOL track record summary including recent evaluated and pending calls.",
+            input_schema={
+                "handle": "string",
+            },
+            output_schema=_TOOL_OUTPUT_SCHEMA,
+            callable=get_kol_track_record,
+        ),
+        RegisteredTool(
+            name="get_kol_call_examples",
+            category="internal_context",
+            description="Read examples of evaluated KOL calls for one handle, one symbol, or the whole local dataset.",
+            input_schema={
+                "handle": "string|null",
+                "symbol": "string|null",
+                "limit": "integer",
+            },
+            output_schema=_TOOL_OUTPUT_SCHEMA,
+            callable=get_kol_call_examples,
         ),
     ]
 

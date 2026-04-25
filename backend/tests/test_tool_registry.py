@@ -25,6 +25,9 @@ def test_registry_includes_all_required_tools(db_session) -> None:
         "get_latest_insight",
         "get_high_risk_tokens",
         "get_data_mode_status",
+        "rank_kols_by_track_record",
+        "get_kol_track_record",
+        "get_kol_call_examples",
     }
     assert expected.issubset(tool_names)
 
@@ -67,4 +70,4 @@ def test_tool_categories_are_correct(db_session) -> None:
     internal_tools = [tool for tool in tools if tool["category"] == "internal_context"]
 
     assert len(binance_tools) == 5
-    assert len(internal_tools) == 7
+    assert len(internal_tools) == 10

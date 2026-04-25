@@ -330,3 +330,113 @@ class AgentRun(Base):
     data_mode: Mapped[str | None] = mapped_column(String(16), nullable=True)
     total_latency_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
     status: Mapped[str | None] = mapped_column(String(16), nullable=True, index=True)
+
+
+class KOLCall(Base):
+    __tablename__ = "kol_calls"
+    __table_args__ = (
+        UniqueConstraint("post_id", "chain_id", "contract_address", name="uq_kol_calls_post_token"),
+        Index("ix_kol_calls_kol_created_at", "kol_id", "post_created_at"),
+        Index("ix_kol_calls_token", "chain_id", "contract_address"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    kol_id: Mapped[int] = mapped_column(
+        ForeignKey("kol_profiles.id"),
+        nullable=False,
+        index=True,
+    )
+    post_id: Mapped[int] = mapped_column(
+        ForeignKey("kol_posts.id"),
+        nullable=False,
+        index=True,
+    )
+    chain_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    contract_address: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    symbol_text: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    direction: Mapped[str] = mapped_column(String(16), nullable=False, index=True)
+    confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    post_created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        index=True,
+    )
+    source_mode: Mapped[str] = mapped_column(String(16), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+    raw_mention_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class KOLCallPriceObservation(Base):
+    __tablename__ = "kol_call_price_observations"
+    __table_args__ = (
+        UniqueConstraint("kol_call_id", name="uq_kol_call_price_observation_call"),
+        Index("ix_kol_call_price_observations_status", "evaluation_status"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    kol_call_id: Mapped[int] = mapped_column(
+        ForeignKey("kol_calls.id"),
+        nullable=False,
+        index=True,
+    )
+    price_at_post: Mapped[float | None] = mapped_column(Float, nullable=True)
+    price_1h: Mapped[float | None] = mapped_column(Float, nullable=True)
+    price_6h: Mapped[float | None] = mapped_column(Float, nullable=True)
+    price_24h: Mapped[float | None] = mapped_column(Float, nullable=True)
+    price_7d: Mapped[float | None] = mapped_column(Float, nullable=True)
+    return_1h: Mapped[float | None] = mapped_column(Float, nullable=True)
+    return_6h: Mapped[float | None] = mapped_column(Float, nullable=True)
+    return_24h: Mapped[float | None] = mapped_column(Float, nullable=True)
+    return_7d: Mapped[float | None] = mapped_column(Float, nullable=True)
+    primary_return: Mapped[float | None] = mapped_column(Float, nullable=True)
+    primary_window: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    is_hit: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    evaluation_status: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    price_source: Mapped[str | None] = mapped_column(Text, nullable=True)
+    evaluated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+    raw_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class KOLTrackRecordScore(Base):
+    __tablename__ = "kol_track_record_scores"
+    __table_args__ = (
+        UniqueConstraint("kol_id", "window", name="uq_kol_track_record_scores_kol_window"),
+        Index("ix_kol_track_record_scores_window_score", "window", "track_record_score"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    kol_id: Mapped[int] = mapped_column(
+        ForeignKey("kol_profiles.id"),
+        nullable=False,
+        index=True,
+    )
+    window: Mapped[str] = mapped_column(String(8), nullable=False, index=True)
+    total_calls: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    evaluated_calls: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    bullish_calls: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    bearish_calls: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    neutral_or_unknown_calls: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    hits: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    misses: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    hit_rate: Mapped[float | None] = mapped_column(Float, nullable=True)
+    average_return_24h: Mapped[float | None] = mapped_column(Float, nullable=True)
+    median_return_24h: Mapped[float | None] = mapped_column(Float, nullable=True)
+    average_primary_return: Mapped[float | None] = mapped_column(Float, nullable=True)
+    sample_size_confidence: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    track_record_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    label: Mapped[str] = mapped_column(String(64), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+    rationale_json: Mapped[str | None] = mapped_column(Text, nullable=True)

@@ -18,8 +18,8 @@ class ChainOption(BaseModel):
 
 
 class AdminRefreshRequest(BaseModel):
-    jobs: list[Literal["market", "audits", "smart_money", "kols", "insights"]] = Field(
-        default_factory=lambda: ["market", "audits", "smart_money", "kols", "insights"]
+    jobs: list[Literal["market", "audits", "smart_money", "kols", "insights", "kol_performance"]] = Field(
+        default_factory=lambda: ["market", "audits", "smart_money", "kols", "insights", "kol_performance"]
     )
     chains: list[str] | None = None
     limit_per_chain: int = Field(default=20, ge=1, le=100)
@@ -55,6 +55,13 @@ class AdminRefreshInsightSummary(BaseModel):
     errors: list[str] = Field(default_factory=list)
 
 
+class AdminRefreshKOLPerformanceSummary(BaseModel):
+    calls_created: int = 0
+    calls_evaluated: int = 0
+    scores_updated: int = 0
+    warnings: list[str] = Field(default_factory=list)
+
+
 class AdminRefreshResponse(BaseModel):
     status: Literal["ok"] = "ok"
     jobs: list[str]
@@ -63,6 +70,7 @@ class AdminRefreshResponse(BaseModel):
     summary: list[AdminRefreshChainSummary]
     kol_summary: AdminRefreshKOLSummary | None = None
     insight_summary: AdminRefreshInsightSummary | None = None
+    kol_performance_summary: AdminRefreshKOLPerformanceSummary | None = None
     errors: list[str] = Field(default_factory=list)
 
 

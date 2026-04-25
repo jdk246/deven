@@ -153,6 +153,68 @@ def build_kol_list_payload(db: Session) -> dict[str, Any]:
     }
 
 
+def build_kol_feed_payload(
+    db: Session,
+    *,
+    limit: int = 50,
+) -> dict[str, Any]:
+    rows = db.execute(
+        select(KOLPost, KOLProfile)
+        .join(KOLProfile, KOLPost.kol_id == KOLProfile.id)
+        .order_by(desc(KOLPost.created_at), desc(KOLPost.inserted_at))
+        .limit(limit)
+    ).all()
+
+    items = []
+    for post, profile in rows:
+        mentions = db.execute(
+            select(TokenMention)
+            .where(TokenMention.post_id == post.id)
+            .order_by(desc(TokenMention.created_at))
+        ).scalars().all()
+
+        items.append(
+            {
+                "post_id": post.id,
+                "external_post_id": post.external_post_id,
+                "created_at": _isoformat(post.created_at or post.inserted_at),
+                "text": post.text,
+                "url": post.url,
+                "like_count": post.like_count,
+                "repost_count": post.repost_count,
+                "reply_count": post.reply_count,
+                "view_count": post.view_count,
+                "source_mode": post.source_mode,
+                "sentiment": post.sentiment,
+                "sentiment_score": post.sentiment_score,
+                "kol": {
+                    "handle": profile.handle,
+                    "display_name": profile.display_name,
+                    "category": profile.category,
+                    "priority": profile.priority,
+                },
+                "resolved_mention_count": sum(1 for mention in mentions if mention.is_resolved),
+                "mentions": [
+                    {
+                        "mention_type": mention.mention_type,
+                        "symbol_text": mention.symbol_text,
+                        "chain_id": mention.chain_id,
+                        "chain_name": build_chain_option(mention.chain_id)["name"] if mention.chain_id else None,
+                        "contract_address": mention.contract_address,
+                        "is_resolved": mention.is_resolved,
+                        "confidence": mention.confidence,
+                    }
+                    for mention in mentions[:5]
+                ],
+            }
+        )
+
+    return {
+        "data_mode": get_settings().kol_data_mode,
+        "items": items,
+    }
+
+
 def build_kol_detail_payload(
     db: Session,
     *,

@@ -52,3 +52,15 @@ post_json "/api/agent/query" '{"message":"Which tokens have smart-money activity
 
 print_section "Agent Query: KOL Hype Vs Market Data"
 post_json "/api/agent/query" '{"message":"Is the KOL hype backed by market data?","debug":true}'
+
+print_section "Agent Query: Best KOL Track Record"
+post_json "/api/agent/query" '{"message":"Which KOLs have the best track record?","debug":true}'
+
+print_section "Agent Query: Weak Historical Alignment"
+post_json "/api/agent/query" '{"message":"Which KOLs have weak historical alignment?","debug":true}'
+
+print_section "Agent Query: KOL Ranking Methodology"
+post_json "/api/agent/query" '{"message":"How do you calculate KOL rankings?","debug":true}'
+
+print_section "Agent Query: KOL Call Examples"
+post_json "/api/agent/query" '{"message":"Show me examples of KOL calls that were right or wrong.","debug":true}'

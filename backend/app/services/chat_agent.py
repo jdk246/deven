@@ -48,41 +48,66 @@ TOKEN_STOPWORDS = {
     "general",
     "have",
     "help",
+    "historical",
+    "history",
     "hype",
     "is",
     "it",
     "kol",
+    "low",
     "look",
     "looks",
     "market",
+    "methodology",
     "mentioned",
     "money",
+    "now",
     "of",
     "on",
     "or",
+    "performance",
+    "performed",
     "positive",
+    "rank",
+    "ranking",
+    "rankings",
+    "record",
+    "right",
     "risk",
     "risky",
+    "sample",
+    "score",
+    "scores",
     "sentiment",
     "smart",
     "social",
     "supported",
     "the",
     "this",
+    "track",
     "token",
     "tokens",
     "trending",
     "vs",
+    "weak",
     "what",
     "which",
     "why",
     "with",
+    "worst",
+    "best",
+    "today",
+    "latest",
 }
 
 ChatIntent = Literal[
     "trending_tokens",
     "token_explanation",
     "kol_sentiment",
+    "kol_rankings",
+    "kol_track_record",
+    "kol_performance_methodology",
+    "kol_call_examples",
     "high_risk_tokens",
     "smart_money_activity",
     "compare_tokens",
@@ -220,6 +245,14 @@ class ChatAgentService:
                 chain_id=chain_id,
                 token_context=token_context,
             )
+        if intent == "kol_rankings":
+            return self._answer_kol_rankings(message=message)
+        if intent == "kol_track_record":
+            return self._answer_kol_track_record(message=message)
+        if intent == "kol_performance_methodology":
+            return self._answer_kol_performance_methodology()
+        if intent == "kol_call_examples":
+            return self._answer_kol_call_examples(message=message)
         if intent == "high_risk_tokens":
             return self._answer_high_risk_tokens(
                 message=message,
@@ -852,6 +885,270 @@ class ChatAgentService:
             tool_calls=tool_calls,
         )
 
+    def _answer_kol_rankings(self, *, message: str) -> dict[str, Any]:
+        lowered = message.lower()
+        wants_low_alignment = any(
+            phrase in lowered
+            for phrase in (
+                "weak historical alignment",
+                "historically bad",
+                "lowest score",
+                "low score",
+                "worst",
+                "negative post-event alignment",
+            )
+        )
+        plan = [
+            ToolPlanStep(
+                alias="kol_rankings",
+                tool_name="rank_kols_by_track_record",
+                input_args={
+                    "limit": DEFAULT_LIMIT,
+                    "min_evaluated_calls": 1,
+                    "include_insufficient": True,
+                },
+            )
+        ]
+        tool_calls = self._run_tool_plan(plan)
+        rankings_result = self._result_for_alias(tool_calls, "kol_rankings")
+        rankings_payload = self._tool_dict(rankings_result)
+        items = self._tool_items(rankings_result)
+
+        if not items:
+            return self._result_payload(
+                answer=(
+                    "I do not have enough evaluated KOL call history yet to rank historical alignment. "
+                    "Once more post-event price observations are available, these rankings will fill in."
+                ),
+                evidence_used=[],
+                missing_data=["kol_rankings"],
+                tool_calls=tool_calls,
+            )
+
+        ranked_items = sorted(
+            items,
+            key=lambda item: (
+                float(item.get("track_record_score") or 50.0),
+                float(item.get("sample_size_confidence") or 0.0),
+                int(item.get("evaluated_calls") or 0),
+            ),
+            reverse=not wants_low_alignment,
+        )
+        selected = ranked_items[:3]
+        labels = [
+            (
+                f"@{item.get('handle')} "
+                f"({item.get('label')}, "
+                f"score {float(item.get('track_record_score') or 50.0):.1f}, "
+                f"{int(item.get('evaluated_calls') or 0)} evaluated call"
+                f"{'' if int(item.get('evaluated_calls') or 0) == 1 else 's'})"
+            )
+            for item in selected
+            if item.get("handle")
+        ]
+        stance = (
+            "the weakest historical alignment in the evaluated dataset currently looks like"
+            if wants_low_alignment
+            else "among evaluated KOL calls, the strongest historical alignment currently looks like"
+        )
+        answer = (
+            f"{stance} {self._format_list(labels)}. "
+            "The score reflects whether bullish or bearish token mentions were followed by price movement in the same direction, "
+            "primarily over the 24h window, with sample-size adjustment so tiny histories do not get extreme scores."
+        )
+        evidence = [
+            {
+                "type": "kol_rankings",
+                "status": rankings_result.status if rankings_result is not None else "unknown",
+                "top_ranked_handles": [item.get("handle") for item in selected],
+                "evaluated_calls": [int(item.get("evaluated_calls") or 0) for item in selected],
+                "scores": [float(item.get("track_record_score") or 50.0) for item in selected],
+                "methodology": rankings_payload.get("methodology"),
+            }
+        ]
+        return self._result_payload(
+            answer=answer,
+            evidence_used=evidence,
+            missing_data=[],
+            tool_calls=tool_calls,
+        )
+
+    def _answer_kol_track_record(self, *, message: str) -> dict[str, Any]:
+        handles = self._extract_handles(message)
+        if not handles:
+            return self._result_payload(
+                answer="Please name a KOL handle like @example so I can look up that track record.",
+                evidence_used=[],
+                missing_data=["kol_handle"],
+                tool_calls=[],
+            )
+
+        handle = handles[0]
+        plan = [
+            ToolPlanStep(
+                alias="kol_track_record",
+                tool_name="get_kol_track_record",
+                input_args={"handle": handle},
+            ),
+            ToolPlanStep(
+                alias="kol_call_examples",
+                tool_name="get_kol_call_examples",
+                input_args={"handle": handle, "limit": 4},
+            ),
+        ]
+        tool_calls = self._run_tool_plan(plan)
+        track_record_result = self._result_for_alias(tool_calls, "kol_track_record")
+        examples_result = self._result_for_alias(tool_calls, "kol_call_examples")
+        track_payload = self._tool_dict(track_record_result)
+        profile = track_payload.get("profile") if isinstance(track_payload.get("profile"), dict) else {}
+        score = track_payload.get("score") if isinstance(track_payload.get("score"), dict) else {}
+        examples = self._tool_items(examples_result)
+
+        if not profile:
+            return self._result_payload(
+                answer=f"I do not have a stored track record for @{handle}.",
+                evidence_used=[],
+                missing_data=["kol_track_record"],
+                tool_calls=tool_calls,
+            )
+
+        evaluated_calls = int(score.get("evaluated_calls") or 0)
+        label = str(score.get("label") or "Insufficient Sample")
+        sample_confidence = float(score.get("sample_size_confidence") or 0.0)
+        score_value = float(score.get("track_record_score") or 50.0)
+        hits = int(score.get("hits") or 0)
+        misses = int(score.get("misses") or 0)
+        hit_rate = self._to_float(score.get("hit_rate"))
+
+        if evaluated_calls <= 0:
+            answer = (
+                f"@{profile.get('handle')} is in the tracked dataset, but there is not enough evaluated bullish or bearish "
+                "history yet to support a strong track record read."
+            )
+            missing_data = ["evaluated_kol_calls"]
+        else:
+            hit_rate_text = f"{hit_rate * 100:.1f}%" if hit_rate is not None else "n/a"
+            answer = (
+                f"@{profile.get('handle')} currently has {label.lower()} with a track record score of {score_value:.1f} "
+                f"across {evaluated_calls} evaluated bullish or bearish calls, with {hits} hit"
+                f"{'' if hits == 1 else 's'}, {misses} miss"
+                f"{'' if misses == 1 else 'es'}, and a {hit_rate_text} hit rate. "
+                f"Sample-size confidence is {sample_confidence:.2f}, so {self._sample_size_text(sample_confidence)}."
+            )
+            missing_data = []
+
+        example_text = self._format_kol_call_examples(examples[:2])
+        if example_text:
+            answer += f" Recent evaluated examples include {example_text}."
+
+        evidence = [
+            {
+                "type": "kol_track_record",
+                "status": track_record_result.status if track_record_result is not None else "unknown",
+                "handle": profile.get("handle"),
+                "label": label,
+                "track_record_score": score_value,
+                "evaluated_calls": evaluated_calls,
+                "hits": hits,
+                "misses": misses,
+                "sample_size_confidence": sample_confidence,
+            },
+            {
+                "type": "kol_call_examples",
+                "status": examples_result.status if examples_result is not None else "unknown",
+                "match_count": len(examples),
+            },
+        ]
+        return self._result_payload(
+            answer=answer,
+            evidence_used=evidence,
+            missing_data=missing_data,
+            tool_calls=tool_calls,
+        )
+
+    def _answer_kol_performance_methodology(self) -> dict[str, Any]:
+        plan = [
+            ToolPlanStep(
+                alias="kol_rankings",
+                tool_name="rank_kols_by_track_record",
+                input_args={
+                    "limit": 3,
+                    "min_evaluated_calls": None,
+                    "include_insufficient": True,
+                },
+            )
+        ]
+        tool_calls = self._run_tool_plan(plan)
+        rankings_result = self._result_for_alias(tool_calls, "kol_rankings")
+        methodology = self._tool_dict(rankings_result).get("methodology")
+        answer = (
+            "KOL rankings are based on post-event token movement after tracked KOL mentions. "
+            "Bullish calls count as aligned when forward returns are positive, bearish calls count as aligned when forward returns are negative, "
+            "and neutral or unknown calls are stored but excluded from hit-rate scoring. "
+            "The primary window is 24h when available, with 1h, 6h, and 7d stored alongside it. "
+            "Scores are blended back toward neutral when sample size is small, so tiny histories do not get extreme rankings. "
+            "This is correlation-based and not proof of causation."
+        )
+        evidence = [
+            {
+                "type": "kol_ranking_methodology",
+                "status": rankings_result.status if rankings_result is not None else "unknown",
+                "methodology": methodology,
+            }
+        ]
+        return self._result_payload(
+            answer=answer,
+            evidence_used=evidence,
+            missing_data=[],
+            tool_calls=tool_calls,
+        )
+
+    def _answer_kol_call_examples(self, *, message: str) -> dict[str, Any]:
+        handles = self._extract_handles(message)
+        symbols = [match.group(1).upper() for match in CASHTAG_PATTERN.finditer(message)]
+        plan = [
+            ToolPlanStep(
+                alias="kol_call_examples",
+                tool_name="get_kol_call_examples",
+                input_args={
+                    "handle": handles[0] if handles else None,
+                    "symbol": symbols[0] if symbols else None,
+                    "limit": 5,
+                },
+            )
+        ]
+        tool_calls = self._run_tool_plan(plan)
+        examples_result = self._result_for_alias(tool_calls, "kol_call_examples")
+        items = self._tool_items(examples_result)
+
+        if not items:
+            return self._result_payload(
+                answer="I do not have evaluated KOL call examples that match that filter yet.",
+                evidence_used=[],
+                missing_data=["kol_call_examples"],
+                tool_calls=tool_calls,
+            )
+
+        answer = (
+            "Here are a few evaluated KOL call examples from the tracked dataset: "
+            f"{self._format_kol_call_examples(items[:3])}. "
+            "These examples describe historical post-event alignment only, not proof of causation."
+        )
+        evidence = [
+            {
+                "type": "kol_call_examples",
+                "status": examples_result.status if examples_result is not None else "unknown",
+                "match_count": len(items),
+                "handles": list(dict.fromkeys(item.get("handle") for item in items if item.get("handle")))[:5],
+            }
+        ]
+        return self._result_payload(
+            answer=answer,
+            evidence_used=evidence,
+            missing_data=[],
+            tool_calls=tool_calls,
+        )
+
     def _answer_general_help(self, *, chain_id: str | None) -> dict[str, Any]:
         plan = [
             ToolPlanStep(
@@ -866,8 +1163,8 @@ class ChatAgentService:
         record_counts = status_data.get("record_counts") if isinstance(status_data, dict) else {}
         data_mode = status_data.get("kol_data_mode") if isinstance(status_data, dict) else None
         answer = (
-            "I can explain why a token has attention, summarize KOL sentiment, rank risky tokens, "
-            "inspect smart-money activity, and compare two tracked tokens. "
+            "I can explain why a token has attention, summarize KOL sentiment, rank KOL track records, "
+            "rank risky tokens, inspect smart-money activity, and compare two tracked tokens. "
             f"The backend is currently in {data_mode or 'unknown'} KOL mode with "
             f"{int((record_counts or {}).get('tokens') or 0)} tracked tokens."
         )
@@ -922,17 +1219,93 @@ class ChatAgentService:
     ) -> ChatIntent:
         lowered = message.lower()
         extracted_identifiers = self._extract_token_strings(message)
+        extracted_handles = self._extract_handles(message)
         has_identifiers = bool(
             token_context
             or extracted_identifiers["addresses"]
             or extracted_identifiers["symbols"]
         )
+        identifier_count = len(extracted_identifiers["addresses"]) + len(extracted_identifiers["symbols"])
+        generic_trending_query = bool(
+            re.search(r"\b(which|what)\b.*\btokens?\b.*\btrending\b", lowered)
+        ) or bool(
+            re.search(r"\btrending\b.*\btokens?\b", lowered)
+        )
 
         if (
             (" vs " in lowered or " versus " in lowered or "compare" in lowered)
-            and len(extracted_identifiers) >= 2
+            and identifier_count >= 2
         ):
             return "compare_tokens"
+
+        if (
+            any(
+                phrase in lowered
+                for phrase in (
+                    "how do you calculate kol",
+                    "how do you calculate the kol",
+                    "how are kol rankings",
+                    "kol ranking methodology",
+                    "how do you calculate historical alignment",
+                    "how are track record scores",
+                    "methodology",
+                )
+            )
+            and any(
+                term in lowered
+                for term in ("kol", "track record", "historical alignment", "rankings", "score")
+            )
+        ):
+            return "kol_performance_methodology"
+
+        if (
+            any(
+                phrase in lowered
+                for phrase in (
+                    "examples of kol calls",
+                    "show me examples",
+                    "were right or wrong",
+                    "were right",
+                    "were wrong",
+                )
+            )
+            and any(term in lowered for term in ("kol", "calls", "track record", "historical alignment"))
+        ):
+            return "kol_call_examples"
+
+        if any(
+            phrase in lowered
+            for phrase in (
+                "which kols have the best track record",
+                "rank the kols",
+                "rank kols",
+                "kol rankings",
+                "best track record",
+                "weak historical alignment",
+                "historically bad",
+                "lowest score",
+                "which kols have weak historical alignment",
+                "top kols",
+                "best kols",
+            )
+        ):
+            return "kol_rankings"
+
+        if any(
+            phrase in lowered
+            for phrase in (
+                "track record",
+                "historical alignment",
+                "how has this kol performed",
+                "how has this handle performed",
+                "why does this kol have a low score",
+                "why does this handle have a low score",
+                "why does @",
+                "low score",
+                "performed",
+            )
+        ) and (bool(extracted_handles) or "this kol" in lowered or "this handle" in lowered):
+            return "kol_track_record"
 
         if any(keyword in lowered for keyword in ("risk", "risky", "unsafe", "danger")):
             return "high_risk_tokens"
@@ -961,6 +1334,8 @@ class ChatAgentService:
             return "token_explanation"
 
         if "trending" in lowered or "top tokens" in lowered or "current signals" in lowered:
+            if generic_trending_query and not token_context and not extracted_identifiers["addresses"]:
+                return "trending_tokens"
             return "token_explanation" if has_identifiers else "trending_tokens"
 
         if has_identifiers:
@@ -1354,6 +1729,31 @@ class ChatAgentService:
             return f"{items[0]} and {items[1]}"
         return f"{', '.join(items[:-1])}, and {items[-1]}"
 
+    def _sample_size_text(self, sample_size_confidence: float) -> str:
+        if sample_size_confidence >= 1.0:
+            return "the sample is reasonably established"
+        if sample_size_confidence >= 0.6:
+            return "the sample is informative but still moderate"
+        if sample_size_confidence > 0.0:
+            return "the sample is still small and should be read cautiously"
+        return "there is not enough evaluated history yet"
+
+    def _format_kol_call_examples(self, items: list[dict[str, Any]]) -> str:
+        labels: list[str] = []
+        for item in items:
+            handle = item.get("handle")
+            direction = item.get("direction")
+            token_symbol = item.get("token_symbol") or item.get("symbol_text") or item.get("contract_address")
+            window = item.get("primary_window") or "24h"
+            primary_return = self._to_float(item.get("primary_return"))
+            if handle and direction and token_symbol and primary_return is not None:
+                outcome = "hit" if item.get("is_hit") is True else "miss"
+                labels.append(
+                    f"@{handle} {direction} on {token_symbol} "
+                    f"({outcome}, {window} return {primary_return * 100:.1f}%)"
+                )
+        return self._format_list(labels) if labels else ""
+
     def _token_label(self, token: ResolvedToken) -> str:
         symbol = token.symbol or token.name or token.contract_address
         return f"{symbol} on {token.chain_short_name}"
@@ -1524,6 +1924,11 @@ class ChatAgentService:
 
     def _mention_breakdown(self, mention_items: list[dict[str, Any]]) -> dict[str, int]:
         breakdown = defaultdict(int)
+        breakdown["mention_count"] = 0
+        breakdown["bullish"] = 0
+        breakdown["bearish"] = 0
+        breakdown["neutral"] = 0
+        breakdown["unknown"] = 0
         for item in mention_items:
             breakdown["mention_count"] += 1
             sentiment = str(item.get("sentiment") or "").lower()

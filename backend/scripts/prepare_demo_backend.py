@@ -17,6 +17,7 @@ from app.db import Base, SessionLocal, engine
 from app.services.backend_validation import BackendValidationService
 from app.services.insight_generation import InsightGenerationService
 from app.services.kol_ingestion import KOLIngestionService
+from app.services.kol_performance import KOLPerformanceService
 from app.services.market_ingestion import MarketIngestionService, get_enabled_chain_ids
 
 
@@ -122,6 +123,29 @@ def main() -> int:
             persist=True,
         )
         print_json("insight_summary", insight_summary)
+
+        print_section("KOL Performance Refresh")
+        kol_performance_summary = KOLPerformanceService(db).refresh_kol_performance()
+        print_json("kol_performance_summary", kol_performance_summary)
+
+        rankings = KOLPerformanceService(db).list_rankings(
+            limit=5,
+            include_insufficient=True,
+        )
+        top_rankings = rankings.get("items") if isinstance(rankings, dict) else []
+        if top_rankings:
+            print("Top 5 KOL rankings:")
+            for item in top_rankings[:5]:
+                print(
+                    "- "
+                    f"@{item.get('handle')} | "
+                    f"{item.get('label')} | "
+                    f"score={item.get('track_record_score')} | "
+                    f"evaluated_calls={item.get('evaluated_calls')}"
+                )
+        else:
+            print("Top 5 KOL rankings:")
+            print("- No ranking rows available yet.")
 
         print_section("Validation")
         validation = BackendValidationService(db).validate()

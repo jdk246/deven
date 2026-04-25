@@ -56,6 +56,8 @@ In another terminal you can exercise the public agent API:
 bash backend/scripts/demo_agent_api.sh
 ```
 
+That demo flow now includes KOL historical alignment refresh plus example agent questions about KOL rankings and track records.
+
 See [backend/API_CONTRACT.md](backend/API_CONTRACT.md) for the API contract used by the frontend, Telegram client, and external integrations.
 
 ## Monorepo Layout
