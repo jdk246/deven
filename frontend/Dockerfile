@@ -1,13 +1,16 @@
-# frontend/Dockerfile
+
 FROM node:20-alpine AS build
 
 WORKDIR /app
 
 # Install dependencies and build
-COPY frontend/package.json frontend/package-lock.json* /app/
+# Copy package manifests first for better layer caching
+COPY package.json package-lock.json* /app/
 RUN npm ci --production=false --silent
 
-COPY frontend /app
+# Copy source files
+COPY . /app
+
 # Ensure the API base is available at build; Railway will inject VITE_API_BASE_URL in the build environment
 ARG VITE_API_BASE_URL
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
