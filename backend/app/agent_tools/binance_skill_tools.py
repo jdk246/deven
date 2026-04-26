@@ -9,6 +9,7 @@ from typing import Any, Literal
 
 from app.clients import BinanceSkillsClient
 from app.schemas import AgentToolResult
+from app.services.market_ingestion import build_chain_option
 
 TOOL_SOURCE = "binance_skills"
 POSITIVE_DIRECTIONS = {"buy", "long", "accumulate", "bullish"}
@@ -159,6 +160,7 @@ async def query_token_info(
         payload = {
             "metadata": _jsonable(metadata_result.data),
             "dynamic_market_data": _jsonable(dynamic_payload),
+            "display_label": _metadata_display_label(metadata_result.data, chain_id=chain_id),
         }
         return _success_result(
             skill_name="query_token_info",
@@ -428,6 +430,26 @@ def _count_signal_directions(
         if direction in directions:
             count += 1
     return count
+
+
+def _metadata_display_label(metadata: Any, *, chain_id: str) -> str | None:
+    if not isinstance(metadata, dict):
+        return None
+
+    symbol = str(metadata.get("symbol") or "").strip()
+    name = str(metadata.get("name") or "").strip()
+    contract_address = str(metadata.get("contractAddress") or "").strip()
+
+    if name and symbol and name.casefold() != symbol.casefold():
+        base_label = f"{name} ({symbol})"
+    else:
+        base_label = symbol or name or contract_address
+
+    if not base_label:
+        return None
+
+    chain_short_name = build_chain_option(chain_id)["short_name"]
+    return f"{base_label} on {chain_short_name}"
 
 
 def _jsonable(value: Any) -> Any:

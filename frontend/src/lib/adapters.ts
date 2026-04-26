@@ -247,6 +247,30 @@ function buildChainInfo(chains: ChainOptionResponse[]): ChainInfo[] {
   }));
 }
 
+function isPlaceholderMarketContainer(
+  item: TokenListItemResponse,
+  trending: TrendingTokenResponse | undefined,
+  insight: InsightItemResponse | undefined,
+) {
+  const hasIdentity = Boolean(item.symbol?.trim() || item.name?.trim());
+  const hasMarketContext = [
+    item.latest_price,
+    item.latest_percent_change_24h,
+    item.latest_volume_24h,
+    item.latest_market_cap,
+    item.holders,
+    trending?.price,
+    trending?.percent_change_24h,
+    trending?.volume_24h,
+    trending?.liquidity,
+    trending?.holders,
+    insight?.attention_score,
+    insight?.summary,
+  ].some((value) => value !== null && value !== undefined && value !== "");
+
+  return !hasIdentity && !hasMarketContext;
+}
+
 function buildAssetFromTokenListItem(
   item: TokenListItemResponse,
   trending: TrendingTokenResponse | undefined,
@@ -548,13 +572,22 @@ export function adaptAppSnapshot(input: {
   );
 
   const assets = Object.fromEntries(
-    input.tokenList.items.map((item) => {
-      const key = tokenKey(item.chain_id, item.contract_address);
-      return [
-        key,
-        buildAssetFromTokenListItem(item, trendingByKey.get(key), insightByKey.get(key)),
-      ];
-    }),
+    input.tokenList.items
+      .filter((item) => {
+        const key = tokenKey(item.chain_id, item.contract_address);
+        return !isPlaceholderMarketContainer(
+          item,
+          trendingByKey.get(key),
+          insightByKey.get(key),
+        );
+      })
+      .map((item) => {
+        const key = tokenKey(item.chain_id, item.contract_address);
+        return [
+          key,
+          buildAssetFromTokenListItem(item, trendingByKey.get(key), insightByKey.get(key)),
+        ];
+      }),
   );
 
   const assetList = Object.values(assets).sort((left, right) => {

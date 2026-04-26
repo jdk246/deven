@@ -462,6 +462,7 @@ async def get_latest_insight(
                     "contract_address": normalized_contract,
                     "symbol": token.symbol if token else None,
                     "name": token.name if token else None,
+                    "display_label": _token_display_label(token),
                     "insight": None,
                 },
                 started_at=started_at,
@@ -472,6 +473,7 @@ async def get_latest_insight(
             "contract_address": normalized_contract,
             "symbol": token.symbol if token else None,
             "name": token.name if token else None,
+            "display_label": _token_display_label(token),
             "insight": _insight_payload(insight),
         }
         return _success_result(
@@ -1258,6 +1260,21 @@ def _insight_payload(insight: TokenInsight | None) -> dict[str, Any] | None:
         "generated_at": _isoformat(insight.ts),
         "rationale": rationale,
     }
+
+
+def _token_display_label(token: Token | None) -> str | None:
+    if token is None:
+        return None
+
+    symbol = (token.symbol or "").strip()
+    name = (token.name or "").strip()
+    if name and symbol and name.casefold() != symbol.casefold():
+        base_label = f"{name} ({symbol})"
+    else:
+        base_label = symbol or name or token.contract_address
+
+    chain_short_name = build_chain_option(token.chain_id)["short_name"]
+    return f"{base_label} on {chain_short_name}"
 
 
 def _signal_payload(signal: SmartMoneySignal) -> dict[str, Any]:
