@@ -394,3 +394,43 @@ def test_agent_orchestrator_handles_parody_token_spelling(db_session) -> None:
     assert {"query_token_info", "query_token_audit", "search_kol_mentions", "get_latest_insight"}.issubset(called_tools)
     assert "highest-attention stored token" not in response["answer"].lower()
     assert "dunald tromp" in response["answer"].lower()
+
+
+def test_agent_orchestrator_rewrites_ticker_only_summary_with_full_token_name(db_session) -> None:
+    _seed_agent_tokens(db_session)
+
+    class TickerOnlyInsightRegistry(RecordingRegistry):
+        async def call_tool(self, tool_name: str, input_args: dict | None = None):
+            if tool_name == "get_latest_insight":
+                args = input_args or {}
+                return make_agent_tool_result(
+                    skill_name="internal_database_context",
+                    tool_name="get_latest_insight",
+                    source="internal_context_db",
+                    input_args=args,
+                    data={
+                        "insight": {
+                            "summary": "MAGA falls in the Watchlist range with an Attention Score of 74.",
+                            "attention_score": 74.0,
+                            "market_score": 79.0,
+                            "kol_score": 68.0,
+                            "smart_money_score": 61.0,
+                            "safety_score": 72.0,
+                            "label": "Watchlist",
+                        }
+                    },
+                )
+
+            return await super().call_tool(tool_name, input_args)
+
+    registry = TickerOnlyInsightRegistry()
+    service = ChatAgentService(db_session, registry=registry)
+
+    response = service.answer_question(
+        message="How is that Donald Trump meme coin doing?",
+        chain_id="56",
+        debug=True,
+    )
+
+    assert "official trump (maga) on bsc falls in the watchlist range" in response["answer"].lower()
+    assert " maga falls in the watchlist range" not in response["answer"].lower()

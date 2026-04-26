@@ -19,7 +19,7 @@ from app.models import (
     TokenMention,
     TokenSnapshot,
 )
-from app.services.market_ingestion import get_enabled_chain_ids
+from app.services.market_ingestion import build_chain_option, get_enabled_chain_ids
 from app.services.scoring import ATTENTION_SCORE_NAME, ScoringService, TokenScoreBreakdown
 
 
@@ -236,7 +236,7 @@ class InsightGenerationService:
         context: dict[str, Any],
         breakdown: TokenScoreBreakdown,
     ) -> str:
-        symbol = token.symbol or token.name or token.contract_address
+        display_label = self._summary_token_label(token)
         market_clause = self._market_clause(context["snapshot"], breakdown.market_score)
         kol_clause = self._kol_clause(context["kol_posts"], breakdown.kol_score)
         smart_money_clause = self._smart_money_clause(
@@ -251,7 +251,7 @@ class InsightGenerationService:
         )
 
         parts = [
-            f"{symbol} falls in the {breakdown.label} range with an {ATTENTION_SCORE_NAME} of {breakdown.final_score:.0f}.",
+            f"{display_label} falls in the {breakdown.label} range with an {ATTENTION_SCORE_NAME} of {breakdown.final_score:.0f}.",
             market_clause,
             kol_clause,
             smart_money_clause,
@@ -283,6 +283,7 @@ class InsightGenerationService:
                 "contract_address": token.contract_address,
                 "symbol": token.symbol,
                 "name": token.name,
+                "display_label": self._summary_token_label(token),
             },
             "scores": {
                 "market_score": breakdown.market_score,
@@ -376,6 +377,17 @@ class InsightGenerationService:
             )
 
         return f"Risk readings are comparatively lighter, with a safety score of {safety_score_value:.0f}."
+
+    def _summary_token_label(self, token: Token) -> str:
+        symbol = (token.symbol or "").strip()
+        name = (token.name or "").strip()
+        if name and symbol and name.casefold() != symbol.casefold():
+            base_label = f"{name} ({symbol})"
+        else:
+            base_label = symbol or name or token.contract_address
+
+        chain_short_name = build_chain_option(token.chain_id)["short_name"]
+        return f"{base_label} on {chain_short_name}"
 
     def _market_drivers(self, snapshot: TokenSnapshot | None) -> list[str]:
         if snapshot is None:

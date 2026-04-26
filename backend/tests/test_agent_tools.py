@@ -137,6 +137,7 @@ def test_query_token_info_returns_agent_tool_result() -> None:
     assert result.skill_name == "query_token_info"
     assert result.data["metadata"]["symbol"] == "BNB"
     assert result.data["dynamic_market_data"]["price"] == 650.0
+    assert result.data["display_label"] == "BNB on BSC"
 
 
 def test_query_token_audit_returns_agent_tool_result() -> None:

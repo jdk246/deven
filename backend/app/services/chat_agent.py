@@ -461,7 +461,7 @@ class ChatAgentService:
             answer_parts.append(resolution.warning)
 
         if insight and insight.get("summary"):
-            answer_parts.append(str(insight["summary"]))
+            answer_parts.append(self._present_insight_summary(token, insight))
         else:
             answer_parts.append(
                 f"{self._token_label(token)} is in the local dataset, but I do not have a stored insight summary for it yet."
@@ -2082,13 +2082,21 @@ class ChatAgentService:
         return self._format_list(labels)
 
     def _item_label(self, item: dict[str, Any]) -> str:
-        symbol = item.get("symbol") or item.get("token_symbol") or item.get("name")
+        symbol = item.get("symbol") or item.get("token_symbol")
+        name = item.get("token_name") or item.get("name")
         chain_short_name = item.get("chain_short_name")
         contract = item.get("contract_address") or item.get("contractAddress")
-        if symbol and chain_short_name:
-            return f"{symbol} on {chain_short_name}"
-        if symbol:
-            return str(symbol)
+        base_label = self._composed_token_label(
+            symbol=symbol,
+            name=name,
+            contract_address=contract,
+            include_chain=False,
+            chain_short_name=chain_short_name,
+        )
+        if chain_short_name and base_label:
+            return f"{base_label} on {chain_short_name}"
+        if base_label:
+            return str(base_label)
         return str(contract or "")
 
     def _format_list(self, items: list[str]) -> str:
@@ -2127,8 +2135,72 @@ class ChatAgentService:
         return self._format_list(labels) if labels else ""
 
     def _token_label(self, token: ResolvedToken) -> str:
-        symbol = token.symbol or token.name or token.contract_address
-        return f"{symbol} on {token.chain_short_name}"
+        return self._composed_token_label(
+            symbol=token.symbol,
+            name=token.name,
+            contract_address=token.contract_address,
+            include_chain=True,
+            chain_short_name=token.chain_short_name,
+        )
+
+    def _token_base_label(self, token: ResolvedToken) -> str:
+        return self._composed_token_label(
+            symbol=token.symbol,
+            name=token.name,
+            contract_address=token.contract_address,
+            include_chain=False,
+            chain_short_name=token.chain_short_name,
+        )
+
+    def _composed_token_label(
+        self,
+        *,
+        symbol: Any,
+        name: Any,
+        contract_address: Any,
+        include_chain: bool,
+        chain_short_name: str | None,
+    ) -> str:
+        normalized_symbol = self._context_string(symbol) or ""
+        normalized_name = self._context_string(name) or ""
+        normalized_contract = self._context_string(contract_address) or ""
+
+        if normalized_name and normalized_symbol and normalized_name.casefold() != normalized_symbol.casefold():
+            base_label = f"{normalized_name} ({normalized_symbol})"
+        else:
+            base_label = normalized_symbol or normalized_name or normalized_contract
+
+        if include_chain and chain_short_name:
+            return f"{base_label} on {chain_short_name}"
+        return base_label
+
+    def _present_insight_summary(
+        self,
+        token: ResolvedToken,
+        insight: dict[str, Any],
+    ) -> str:
+        summary = self._context_string(insight.get("summary"))
+        if not summary:
+            return f"{self._token_label(token)} is in the local dataset, but I do not have a stored insight summary for it yet."
+
+        display_label = self._token_label(token)
+        replacement_candidates = [
+            self._token_base_label(token),
+            self._context_string(token.symbol),
+            self._context_string(token.name),
+            self._context_string(token.contract_address),
+        ]
+
+        for candidate in replacement_candidates:
+            if not candidate:
+                continue
+            pattern = re.compile(rf"^{re.escape(candidate)}\b", re.IGNORECASE)
+            if pattern.search(summary):
+                return pattern.sub(display_label, summary, count=1)
+
+        if display_label.casefold() in summary.casefold():
+            return summary
+        return f"{display_label}: {summary}"
 
     def _tool_dict(self, result: AgentToolResult | None) -> dict[str, Any]:
         if result is None or not isinstance(result.data, dict):
