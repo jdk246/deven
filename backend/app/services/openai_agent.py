@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import inspect
 import json
 import re
 import time
@@ -282,12 +281,10 @@ class OpenAIAgentService(ChatAgentService):
             name: self._descriptor_to_json_schema(descriptor)
             for name, descriptor in tool.input_schema.items()
         }
-        signature = inspect.signature(tool.callable)
-        required = [
-            name
-            for name, parameter in signature.parameters.items()
-            if name in properties and parameter.default is inspect._empty
-        ]
+        # OpenAI strict function tools currently require every declared property
+        # to also appear in the required array. Optional inputs should therefore
+        # be represented as nullable schemas rather than omitted from required.
+        required = list(properties.keys())
         return {
             "type": "object",
             "properties": properties,

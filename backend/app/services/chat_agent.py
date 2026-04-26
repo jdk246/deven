@@ -38,6 +38,7 @@ TOKEN_STOPWORDS = {
     "are",
     "attention",
     "backed",
+    "based",
     "bullish",
     "by",
     "compare",
@@ -138,6 +139,7 @@ TOKEN_ALIAS_HINTS: dict[str, tuple[str, ...]] = {
 
 ChatIntent = Literal[
     "trending_tokens",
+    "token_screening",
     "token_explanation",
     "kol_sentiment",
     "kol_rankings",
@@ -269,6 +271,8 @@ class ChatAgentService:
     ) -> dict[str, Any]:
         if intent == "trending_tokens":
             return self._answer_trending_tokens(message=message, chain_id=chain_id)
+        if intent == "token_screening":
+            return self._answer_token_screening(message=message, chain_id=chain_id)
         if intent == "token_explanation":
             return self._answer_token_explanation(
                 message=message,
@@ -371,6 +375,102 @@ class ChatAgentService:
         ]
         return self._result_payload(
             answer=" ".join(answer_parts).strip(),
+            evidence_used=[item for item in evidence if item is not None],
+            missing_data=missing_data,
+            tool_calls=tool_calls,
+        )
+
+    def _answer_token_screening(
+        self,
+        *,
+        message: str,
+        chain_id: str | None,
+    ) -> dict[str, Any]:
+        effective_chain_id = chain_id or self._infer_chain_id_from_message(message)
+        plan = [
+            ToolPlanStep(
+                alias="screening_context",
+                tool_name="get_trending_token_context",
+                input_args={
+                    "chain_id": effective_chain_id,
+                    "limit": DEFAULT_LIMIT,
+                },
+            )
+        ]
+        tool_calls = self._run_tool_plan(plan)
+        context_result = self._result_for_alias(tool_calls, "screening_context")
+        items = self._sorted_local_trending_items(self._tool_items(context_result))
+
+        if not items:
+            return self._result_payload(
+                answer="I do not have enough stored token context to screen that market slice right now.",
+                evidence_used=[item for item in [self._local_trending_evidence(context_result)] if item is not None],
+                missing_data=["screening_context"],
+                tool_calls=tool_calls,
+            )
+
+        requested_chain_name = (
+            build_chain_option(effective_chain_id)["name"] if effective_chain_id else "the current tracked set"
+        )
+        requested_criteria = self._screening_requested_criteria(message)
+        minimum_hits = max(2, min(3, len(requested_criteria))) if requested_criteria else 2
+
+        analyses: list[dict[str, Any]] = []
+        for item in items:
+            analysis = self._screening_analysis(item)
+            analysis["score"] = self._screening_score(item=item, analysis=analysis)
+            analyses.append(analysis)
+
+        analyses.sort(
+            key=lambda row: (
+                float(row.get("score") or 0.0),
+                float(row.get("attention_score") or 0.0),
+                float(row.get("liquidity") or 0.0),
+            ),
+            reverse=True,
+        )
+
+        matching_items = [analysis for analysis in analyses if int(analysis["matched_criteria_count"]) >= minimum_hits]
+        shortlisted = (matching_items or analyses)[:3]
+
+        if not shortlisted:
+            return self._result_payload(
+                answer="I could not identify any stored tokens that are a reasonable fit for that screen right now.",
+                evidence_used=[item for item in [self._local_trending_evidence(context_result)] if item is not None],
+                missing_data=["screening_matches"],
+                tool_calls=tool_calls,
+            )
+
+        if matching_items:
+            lead = (
+                f"Within {requested_chain_name}, the strongest current matches for that screen are "
+                f"{self._format_list([analysis['label'] for analysis in shortlisted])}."
+            )
+            missing_data: list[str] = []
+        else:
+            lead = (
+                f"I do not see three perfect matches for all of those filters in {requested_chain_name} right now, "
+                f"but the closest current fits are {self._format_list([analysis['label'] for analysis in shortlisted])}."
+            )
+            missing_data = ["strict_screen_matches"]
+
+        ranked_bits = [
+            f"{index}. {self._screening_summary(analysis)}"
+            for index, analysis in enumerate(shortlisted, start=1)
+        ]
+
+        answer = " ".join([lead, *ranked_bits]).strip()
+        evidence = [
+            self._local_trending_evidence(context_result),
+            self._screening_evidence(
+                chain_name=requested_chain_name,
+                requested_criteria=requested_criteria,
+                shortlisted=shortlisted,
+                used_fallback=not bool(matching_items),
+            ),
+        ]
+        return self._result_payload(
+            answer=answer,
             evidence_used=[item for item in evidence if item is not None],
             missing_data=missing_data,
             tool_calls=tool_calls,
@@ -1278,7 +1378,8 @@ class ChatAgentService:
         data_mode = status_data.get("kol_data_mode") if isinstance(status_data, dict) else None
         answer = (
             "I can explain why a token has attention, summarize KOL sentiment, rank KOL track records, "
-            "rank risky tokens, inspect smart-money activity, and compare two tracked tokens. "
+            "rank risky tokens, screen tokens by liquidity/risk/KOL/smart-money criteria, inspect smart-money activity, "
+            "and compare tracked tokens. "
             f"The backend is currently in {data_mode or 'unknown'} KOL mode with "
             f"{int((record_counts or {}).get('tokens') or 0)} tracked tokens."
         )
@@ -1351,6 +1452,38 @@ class ChatAgentService:
             and identifier_count >= 2
         ):
             return "compare_tokens"
+
+        screening_signal_count = sum(
+            1
+            for marker in (
+                "liquidity",
+                "audit risk",
+                "low risk",
+                "low audit risk",
+                "smart money",
+                "smart-money",
+                "kol sentiment",
+                "positive kol",
+                "positive sentiment",
+            )
+            if marker in lowered
+        )
+        if (
+            any(
+                phrase in lowered
+                for phrase in (
+                    "which ones have",
+                    "rank the top",
+                    "rank them",
+                    "top 3",
+                    "top three",
+                    "tradeoffs",
+                    "among the tokens",
+                )
+            )
+            and screening_signal_count >= 2
+        ):
+            return "token_screening"
 
         if (
             any(
@@ -1522,6 +1655,16 @@ class ChatAgentService:
             ambiguous_symbols=tuple(ambiguous_symbols),
             warning=warning,
         )
+
+    def _infer_chain_id_from_message(self, message: str) -> str | None:
+        lowered = message.lower()
+        if "solana" in lowered or re.search(r"\bsol\b", lowered):
+            return "CT_501"
+        if "bnb chain" in lowered or "binance smart chain" in lowered or re.search(r"\bbsc\b", lowered):
+            return "56"
+        if re.search(r"\bon base\b", lowered) or "base chain" in lowered:
+            return "8453"
+        return None
 
     def _resolve_from_token_context(
         self,
@@ -2108,6 +2251,119 @@ class ChatAgentService:
         if len(items) == 2:
             return f"{items[0]} and {items[1]}"
         return f"{', '.join(items[:-1])}, and {items[-1]}"
+
+    def _screening_requested_criteria(self, message: str) -> list[str]:
+        lowered = message.lower()
+        criteria: list[str] = []
+        if any(marker in lowered for marker in ("positive kol", "kol sentiment", "positive sentiment")):
+            criteria.append("positive_kol")
+        if "liquidity" in lowered or "liquid" in lowered:
+            criteria.append("decent_liquidity")
+        if any(marker in lowered for marker in ("low audit risk", "low risk", "safer", "safe")):
+            criteria.append("low_risk")
+        if any(marker in lowered for marker in ("smart money", "smart-money", "whale", "inflow")):
+            criteria.append("smart_money_support")
+        return criteria
+
+    def _screening_analysis(self, item: dict[str, Any]) -> dict[str, Any]:
+        liquidity = self._to_float(item.get("liquidity"))
+        attention_score = self._to_float(item.get("attention_score"))
+        safety_score = self._to_float(item.get("safety_score"))
+        risk_level = self._normalize_key(item.get("risk_level_enum"))
+        bullish_mentions = int(item.get("bullish_mentions") or 0)
+        bearish_mentions = int(item.get("bearish_mentions") or 0)
+        mention_count = int(item.get("kol_mention_count") or 0)
+        positive_signals = int(item.get("positive_signal_count") or 0)
+        signal_count = int(item.get("smart_money_signal_count") or 0)
+        matched_criteria: list[str] = []
+        tradeoffs: list[str] = []
+
+        if mention_count > 0 and bullish_mentions > bearish_mentions:
+            matched_criteria.append("positive KOL sentiment")
+        elif mention_count == 0:
+            tradeoffs.append("KOL coverage is still thin")
+        else:
+            tradeoffs.append("KOL sentiment is mixed")
+
+        if liquidity is not None and liquidity >= 250_000.0:
+            matched_criteria.append(f"{self._format_number(liquidity)} liquidity")
+        else:
+            tradeoffs.append("liquidity is still on the lighter side")
+
+        if risk_level == "low" and (safety_score is None or safety_score >= 70.0):
+            matched_criteria.append(
+                f"low audit risk{'' if safety_score is None else f' and safety {safety_score:.0f}'}"
+            )
+        else:
+            tradeoffs.append("risk readings are not especially light")
+
+        if positive_signals > 0:
+            matched_criteria.append(
+                f"{positive_signals} positive smart-money signal{'' if positive_signals == 1 else 's'}"
+            )
+        elif signal_count > 0:
+            tradeoffs.append("smart-money support is present but mixed")
+        else:
+            tradeoffs.append("smart-money support is muted")
+
+        return {
+            "item": item,
+            "label": self._item_label(item),
+            "attention_score": attention_score,
+            "liquidity": liquidity,
+            "matched_criteria": matched_criteria,
+            "matched_criteria_count": len(matched_criteria),
+            "tradeoffs": tradeoffs,
+        }
+
+    def _screening_score(self, *, item: dict[str, Any], analysis: dict[str, Any]) -> float:
+        return (
+            float(analysis.get("matched_criteria_count") or 0) * 25.0
+            + float(item.get("attention_score") or 0.0) * 0.35
+            + min(float(item.get("liquidity") or 0.0) / 500_000.0, 12.0)
+            + min(int(item.get("positive_signal_count") or 0) * 4.0, 12.0)
+        )
+
+    def _screening_summary(self, analysis: dict[str, Any]) -> str:
+        item = analysis["item"]
+        matched_criteria = analysis.get("matched_criteria") or []
+        tradeoffs = analysis.get("tradeoffs") or []
+        attention_score = self._to_float(item.get("attention_score"))
+
+        lead = (
+            f"{analysis['label']} matches on {self._format_list(matched_criteria[:3])}"
+            if matched_criteria
+            else f"{analysis['label']} is still mostly an attention-led candidate"
+        )
+        if attention_score is not None:
+            lead += f" with {ATTENTION_SCORE_NAME} {attention_score:.0f}"
+        if tradeoffs:
+            lead += f"; tradeoff: {tradeoffs[0]}"
+        return lead + "."
+
+    def _screening_evidence(
+        self,
+        *,
+        chain_name: str,
+        requested_criteria: list[str],
+        shortlisted: list[dict[str, Any]],
+        used_fallback: bool,
+    ) -> dict[str, Any]:
+        return {
+            "type": "token_screening",
+            "chain_name": chain_name,
+            "requested_criteria": requested_criteria,
+            "used_closest_matches": used_fallback,
+            "items": [
+                {
+                    "token": analysis["label"],
+                    "matched_criteria": analysis.get("matched_criteria", []),
+                    "tradeoffs": analysis.get("tradeoffs", []),
+                    "attention_score": analysis.get("attention_score"),
+                }
+                for analysis in shortlisted
+            ],
+        }
 
     def _sample_size_text(self, sample_size_confidence: float) -> str:
         if sample_size_confidence >= 1.0:
