@@ -8,6 +8,7 @@ import uuid
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from difflib import SequenceMatcher
 from typing import Any, Literal
 
 from sqlalchemy import desc, func, or_, select
@@ -98,6 +99,41 @@ TOKEN_STOPWORDS = {
     "best",
     "today",
     "latest",
+    "coin",
+    "coins",
+    "meme",
+    "memecoin",
+    "crypto",
+    "project",
+    "doing",
+}
+
+TOKEN_QUERY_STOPWORDS = TOKEN_STOPWORDS | {
+    "coin",
+    "coins",
+    "memecoin",
+    "memecoins",
+    "meme",
+    "crypto",
+    "project",
+    "projects",
+    "ticker",
+    "tickers",
+    "official",
+    "doing",
+    "about",
+    "that",
+}
+
+TOKEN_ALIAS_HINTS: dict[str, tuple[str, ...]] = {
+    "donald trump": ("TRUMP", "OFFICIAL TRUMP"),
+    "trump meme coin": ("TRUMP", "OFFICIAL TRUMP"),
+    "donald trump meme coin": ("TRUMP", "OFFICIAL TRUMP"),
+    "official trump": ("TRUMP", "OFFICIAL TRUMP"),
+    "trump coin": ("TRUMP",),
+    "dog with hat": ("WIF", "DOGWIFHAT"),
+    "dogwifhat": ("WIF", "DOGWIFHAT"),
+    "frog coin": ("PEPE", "PEPE"),
 }
 
 ChatIntent = Literal[
@@ -358,8 +394,13 @@ class ChatAgentService:
             return self._ambiguous_token_payload(resolution)
 
         if not resolution.tokens:
+            if self._asks_for_generic_market_support(message):
+                return self._answer_market_support_overview(chain_id=chain_id)
             return self._result_payload(
-                answer="I could not identify a specific token in the current local dataset.",
+                answer=(
+                    "I could not confidently map that question to one tracked token. "
+                    "Try the symbol, contract address, or a more specific token name."
+                ),
                 evidence_used=[],
                 missing_data=["specific_token"],
                 tool_calls=[],
@@ -456,6 +497,79 @@ class ChatAgentService:
         ]
         return self._result_payload(
             answer=" ".join(part for part in answer_parts if part).strip(),
+            evidence_used=[item for item in evidence if item is not None],
+            missing_data=missing_data,
+            tool_calls=tool_calls,
+        )
+
+    def _answer_market_support_overview(
+        self,
+        *,
+        chain_id: str | None,
+    ) -> dict[str, Any]:
+        plan = [
+            ToolPlanStep(
+                alias="live_trending_rank",
+                tool_name="crypto_market_rank",
+                input_args={
+                    "chain_id": chain_id,
+                    "mode": "trending_tokens",
+                    "size": DEFAULT_LIMIT,
+                },
+            ),
+            ToolPlanStep(
+                alias="local_trending_context",
+                tool_name="get_trending_token_context",
+                input_args={
+                    "chain_id": chain_id,
+                    "limit": DEFAULT_LIMIT,
+                },
+            ),
+        ]
+        tool_calls = self._run_tool_plan(plan)
+        live_result = self._result_for_alias(tool_calls, "live_trending_rank")
+        local_result = self._result_for_alias(tool_calls, "local_trending_context")
+        local_items = self._sorted_local_trending_items(self._tool_items(local_result))
+        supported_items = [
+            item
+            for item in local_items
+            if int(item.get("kol_mention_count") or 0) > 0
+            and (
+                float(item.get("volume_24h") or 0.0) > 0.0
+                or float(item.get("liquidity") or 0.0) > 0.0
+            )
+        ]
+        answer_parts: list[str] = []
+        missing_data: list[str] = []
+
+        if supported_items:
+            answer_parts.append(
+                "In the current tracked dataset, the clearest cases where social attention is backed by market activity are "
+                f"{self._format_item_list(supported_items[:3])}."
+            )
+        else:
+            answer_parts.append(
+                "I do not see a strong market-backed social setup in the stored dataset right now."
+            )
+            missing_data.append("market_backed_social_context")
+
+        if live_result is not None and live_result.status in {"ok", "partial"}:
+            answer_parts.append(
+                f"Live Binance trending rank returned {len(self._tool_items(live_result))} item"
+                f"{'' if len(self._tool_items(live_result)) == 1 else 's'}, which helps cross-check that read."
+            )
+        else:
+            answer_parts.append(
+                "Live Binance trending rank was unavailable, so this answer leans more heavily on stored local context."
+            )
+            missing_data.append("live_binance_trending_rank")
+
+        evidence = [
+            self._local_trending_evidence(local_result),
+            self._live_rank_evidence(live_result, evidence_type="live_trending_rank"),
+        ]
+        return self._result_payload(
+            answer=" ".join(answer_parts).strip(),
             evidence_used=[item for item in evidence if item is not None],
             missing_data=missing_data,
             tool_calls=tool_calls,
@@ -600,7 +714,7 @@ class ChatAgentService:
             chain_id=chain_id,
             token_context=token_context,
             max_tokens=1,
-            allow_fallback=False,
+            allow_fallback=True,
         )
         plan = [
             ToolPlanStep(
@@ -679,7 +793,7 @@ class ChatAgentService:
             chain_id=chain_id,
             token_context=token_context,
             max_tokens=1,
-            allow_fallback=False,
+            allow_fallback=True,
         )
 
         if resolution.tokens:
@@ -1381,17 +1495,27 @@ class ChatAgentService:
             matches = self._lookup_tokens_by_symbol(symbol, chain_id=chain_id)
             if len(matches) == 1:
                 add_token(matches[0])
-            elif len(matches) > 1 and symbol not in ambiguous_symbols:
-                ambiguous_symbols.append(symbol)
+            elif len(matches) > 1:
+                selected = self._select_best_resolved_token(matches)
+                if selected is not None:
+                    add_token(selected)
+                elif symbol not in ambiguous_symbols:
+                    ambiguous_symbols.append(symbol)
 
         warning: str | None = explicit.warning
         if not resolved and allow_fallback:
-            fallback = self._top_attention_token(chain_id=chain_id)
-            if fallback is not None:
-                resolved.append(fallback)
-                warning = (
-                    "You did not name a specific token, so I used the highest-attention stored token as context."
-                )
+            inferred_tokens, inferred_warning, inferred_ambiguous = self._infer_tokens_from_message(
+                message=message,
+                chain_id=chain_id,
+                max_tokens=max_tokens,
+            )
+            for token in inferred_tokens:
+                add_token(token)
+            for symbol in inferred_ambiguous:
+                if symbol not in ambiguous_symbols:
+                    ambiguous_symbols.append(symbol)
+            if inferred_warning:
+                warning = inferred_warning
 
         return TokenResolution(
             tokens=tuple(resolved),
@@ -1475,6 +1599,242 @@ class ChatAgentService:
         tokens = self.db.execute(statement.order_by(desc(Token.updated_at)).limit(10)).scalars().all()
         return [self._to_resolved_token(token) for token in tokens]
 
+    def _select_best_resolved_token(
+        self,
+        candidates: list[ResolvedToken],
+    ) -> ResolvedToken | None:
+        ranked = sorted(
+            candidates,
+            key=lambda token: (
+                float(token.attention_score or 0.0),
+                token.chain_id == self._default_chain_id(),
+            ),
+            reverse=True,
+        )
+        if not ranked:
+            return None
+        if len(ranked) == 1:
+            return ranked[0]
+
+        top = ranked[0]
+        runner_up = ranked[1]
+        top_score = float(top.attention_score or 0.0)
+        runner_up_score = float(runner_up.attention_score or 0.0)
+
+        if top_score <= 0.0 and runner_up_score <= 0.0:
+            return None
+        if top_score - runner_up_score >= 10.0:
+            return top
+        if top_score > 0.0 and runner_up_score == 0.0:
+            return top
+        return None
+
+    def _infer_tokens_from_message(
+        self,
+        *,
+        message: str,
+        chain_id: str | None,
+        max_tokens: int,
+    ) -> tuple[list[ResolvedToken], str | None, list[str]]:
+        lowered = message.lower()
+        query_terms = self._token_query_terms(message)
+        alias_targets = self._alias_targets(lowered)
+
+        if not query_terms and not alias_targets:
+            return [], None, []
+
+        statement = select(Token)
+        if chain_id:
+            statement = statement.where(Token.chain_id == chain_id)
+        candidates = self.db.execute(
+            statement.order_by(desc(Token.updated_at)).limit(250)
+        ).scalars().all()
+
+        scored: list[tuple[float, ResolvedToken, list[str]]] = []
+        for token in candidates:
+            resolved = self._to_resolved_token(token)
+            score, reasons = self._score_token_candidate(
+                resolved,
+                lowered_message=lowered,
+                query_terms=query_terms,
+                alias_targets=alias_targets,
+            )
+            if score > 0.0:
+                scored.append((score, resolved, reasons))
+
+        scored.sort(
+            key=lambda item: (
+                item[0],
+                float(item[1].attention_score or 0.0),
+                item[1].chain_id == self._default_chain_id(),
+            ),
+            reverse=True,
+        )
+
+        if not scored:
+            return [], None, []
+
+        top_score, top_token, reasons = scored[0]
+        if top_score < 4.0:
+            return [], None, []
+
+        if len(scored) > 1:
+            runner_up_score, runner_up_token, _ = scored[1]
+            close_match = (top_score - runner_up_score) < 2.0
+            if close_match:
+                return [], None, [
+                    label
+                    for label in (
+                        top_token.symbol or top_token.name or top_token.contract_address,
+                        runner_up_token.symbol or runner_up_token.name or runner_up_token.contract_address,
+                    )
+                    if label
+                ]
+
+        reason_text = ", ".join(reasons[:2]) if reasons else "plain-English token matching"
+        warning = (
+            f"I inferred you likely meant {self._token_label(top_token)} based on {reason_text}."
+        )
+        return [top_token][:max_tokens], warning, []
+
+    def _token_query_terms(self, message: str) -> list[str]:
+        words = re.findall(r"[A-Za-z0-9]{2,}", message.lower())
+        terms: list[str] = []
+        for word in words:
+            if word in TOKEN_QUERY_STOPWORDS:
+                continue
+            if len(word) <= 2:
+                continue
+            if word not in terms:
+                terms.append(word)
+
+        bigrams = [
+            f"{left} {right}"
+            for left, right in zip(terms, terms[1:])
+            if left not in TOKEN_QUERY_STOPWORDS and right not in TOKEN_QUERY_STOPWORDS
+        ]
+        for phrase in bigrams:
+            if phrase not in terms:
+                terms.append(phrase)
+        return terms
+
+    def _alias_targets(self, lowered_message: str) -> list[str]:
+        targets: list[str] = []
+        for phrase, aliases in TOKEN_ALIAS_HINTS.items():
+            if phrase in lowered_message:
+                for alias in aliases:
+                    lowered_alias = alias.lower()
+                    if lowered_alias not in targets:
+                        targets.append(lowered_alias)
+        return targets
+
+    def _score_token_candidate(
+        self,
+        token: ResolvedToken,
+        *,
+        lowered_message: str,
+        query_terms: list[str],
+        alias_targets: list[str],
+    ) -> tuple[float, list[str]]:
+        normalized_symbol = (token.symbol or "").strip().lower()
+        normalized_name = (token.name or "").strip().lower()
+        if not normalized_symbol and not normalized_name:
+            return 0.0, []
+
+        score = 0.0
+        reasons: list[str] = []
+        name_terms = {
+            term
+            for term in re.findall(r"[a-z0-9]{2,}", normalized_name)
+            if term not in TOKEN_QUERY_STOPWORDS
+        }
+
+        if normalized_symbol and re.search(rf"\b{re.escape(normalized_symbol)}\b", lowered_message):
+            score += 10.0
+            reasons.append(f"symbol match '{token.symbol}'")
+
+        if normalized_name and normalized_name in lowered_message:
+            score += 12.0
+            reasons.append(f"name match '{token.name}'")
+
+        for alias in alias_targets:
+            if alias == normalized_symbol or (normalized_name and alias in normalized_name):
+                score += 9.0
+                reasons.append(f"alias match '{alias}'")
+
+        overlapping_terms = [
+            term
+            for term in query_terms
+            if term == normalized_symbol or term in name_terms
+        ]
+        if overlapping_terms:
+            score += 4.0 * len(overlapping_terms)
+            for term in overlapping_terms[:2]:
+                reasons.append(f"term match '{term}'")
+
+        partial_terms = [
+            term
+            for term in query_terms
+            if len(term) >= 4
+            and term not in overlapping_terms
+            and (
+                (normalized_symbol and term in normalized_symbol)
+                or (normalized_name and term in normalized_name)
+            )
+        ]
+        if partial_terms:
+            score += 1.5 * len(partial_terms)
+            for term in partial_terms[:2]:
+                reasons.append(f"partial match '{term}'")
+
+        fuzzy_terms = []
+        for term in query_terms:
+            if len(term) < 4 or term in overlapping_terms or term in partial_terms:
+                continue
+            similarity_to_symbol = (
+                SequenceMatcher(None, term, normalized_symbol).ratio()
+                if normalized_symbol
+                else 0.0
+            )
+            similarity_to_name = max(
+                (SequenceMatcher(None, term, name_term).ratio() for name_term in name_terms),
+                default=0.0,
+            )
+            if max(similarity_to_symbol, similarity_to_name) >= 0.79:
+                fuzzy_terms.append(term)
+
+        if fuzzy_terms:
+            score += 2.5 * len(fuzzy_terms)
+            for term in fuzzy_terms[:2]:
+                reasons.append(f"fuzzy match '{term}'")
+
+        if any(flag in lowered_message for flag in ("meme coin", "memecoin", "meme")) and self._looks_meme_like(token):
+            score += 1.0
+            reasons.append("meme-token context")
+
+        if token.attention_score is not None:
+            score += min(float(token.attention_score) / 100.0, 0.75)
+
+        deduped_reasons = list(dict.fromkeys(reasons))
+        return score, deduped_reasons
+
+    def _looks_meme_like(self, token: ResolvedToken) -> bool:
+        probe = f"{token.symbol or ''} {token.name or ''}".lower()
+        return any(
+            marker in probe
+            for marker in (
+                "pepe",
+                "doge",
+                "bonk",
+                "wif",
+                "dogwifhat",
+                "floki",
+                "trump",
+                "melania",
+                "inu",
+            )
+        )
+
     def _top_attention_token(self, *, chain_id: str | None) -> ResolvedToken | None:
         insight_statement = select(TokenInsight).order_by(desc(TokenInsight.final_score), desc(TokenInsight.ts))
         if chain_id:
@@ -1543,6 +1903,18 @@ class ChatAgentService:
 
     def _extract_handles(self, message: str) -> list[str]:
         return list(dict.fromkeys(match.group(1).lower() for match in HANDLE_PATTERN.finditer(message)))
+
+    def _asks_for_generic_market_support(self, message: str) -> bool:
+        lowered = message.lower()
+        return any(
+            phrase in lowered
+            for phrase in (
+                "backed by market",
+                "supported by market",
+                "hype backed",
+                "hype supported",
+            )
+        )
 
     def _result_for_alias(
         self,

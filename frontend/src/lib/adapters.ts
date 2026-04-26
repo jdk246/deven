@@ -460,11 +460,19 @@ function buildActiveAlerts(
       ) ?? [];
 
     const uniqueTitles = [...new Set(triggeredTitles)].filter(Boolean);
-    const prioritizedTitles = uniqueTitles
-      .filter((title) => alertSeverity(title) >= 3)
+    const emergencyTitles = uniqueTitles
+      .filter((title) => alertSeverity(title) >= 5)
       .sort((left, right) => alertSeverity(right) - alertSeverity(left));
+    const severeHighRiskTitles =
+      riskLevel === "high"
+        ? uniqueTitles
+            .filter((title) => alertSeverity(title) >= 4)
+            .sort((left, right) => alertSeverity(right) - alertSeverity(left))
+        : [];
+    const prioritizedTitles =
+      emergencyTitles.length > 0 ? emergencyTitles : severeHighRiskTitles;
 
-    if (prioritizedTitles.length === 0 && riskLevel !== "high") {
+    if (prioritizedTitles.length === 0) {
       return [];
     }
 

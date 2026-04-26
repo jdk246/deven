@@ -1,8 +1,6 @@
 import {
   Activity,
-  AlertTriangle,
   Bot,
-  CheckCircle,
   Circle,
   Database,
   Shield,
@@ -224,27 +222,6 @@ export function LandingPage({
               </GlassCard>
             ))}
           </div>
-        </div>
-
-        <div className="mt-12 sm:mt-16 pb-8">
-          <GlassCard className="p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div>
-              <div className="text-xs font-semibold text-white/60 uppercase tracking-wide mb-1">
-                Current state
-              </div>
-              <div className="text-lg font-semibold text-white">
-                Historical KOL alignment + live market data
-              </div>
-              <p className="text-sm text-white/60 mt-2">
-                The social layer stays reproducible for demos, while market, audit, and smart-money
-                views stay current and the KOL layer now includes post-event performance scoring.
-              </p>
-            </div>
-            <div className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10">
-              <CheckCircle className="w-4 h-4 text-green-400" />
-              <span className="text-sm text-white/80">Ready to demo</span>
-            </div>
-          </GlassCard>
         </div>
       </div>
     </div>

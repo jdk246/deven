@@ -329,6 +329,7 @@ class OpenAIAgentService(ChatAgentService):
             "Use only the provided function tools to answer the user. "
             "You must call at least one tool before giving a final answer. "
             "Do not invent market, audit, smart-money, or KOL data. "
+            "If the user refers to a token by nickname or plain-English description, make a careful best-effort inference from the available tool data and say clearly when that inference is tentative. "
             "If a tool returns missing or empty data, say that clearly instead of guessing. "
             "Do not give buy or sell recommendations, do not promise profit, and do not describe any token as risk-free or guaranteed safe. "
             "Keep the answer concise and framed as market research."

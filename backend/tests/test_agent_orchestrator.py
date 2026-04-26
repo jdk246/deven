@@ -13,6 +13,15 @@ class RecordingRegistry:
     def __init__(self) -> None:
         self.calls: list[tuple[str, dict]] = []
 
+    @staticmethod
+    def _symbol_name_for_args(args: dict) -> tuple[str, str]:
+        contract_address = (args.get("contract_address") or "").lower()
+        if contract_address == "0xtrump000000000000000000000000000000000000":
+            return "MAGA", "Official Trump"
+        if args.get("chain_id") == "CT_501":
+            return "SOL", "Solana"
+        return "BNB", "BNB"
+
     async def call_tool(self, tool_name: str, input_args: dict | None = None):
         args = input_args or {}
         self.calls.append((tool_name, dict(args)))
@@ -49,17 +58,17 @@ class RecordingRegistry:
             )
 
         if tool_name == "query_token_info":
-            symbol = "SOL" if args.get("chain_id") == "CT_501" else "BNB"
+            symbol, name = self._symbol_name_for_args(args)
             return make_agent_tool_result(
                 skill_name="query_token_info",
                 tool_name="token_info_bundle",
                 source="binance_skills",
                 input_args=args,
                 data={
-                    "metadata": {"symbol": symbol, "name": symbol},
+                    "metadata": {"symbol": symbol, "name": name},
                     "dynamic_market_data": {
-                        "price": 650.0 if symbol == "BNB" else 155.0,
-                        "percentChange24h": 6.2 if symbol == "BNB" else 5.4,
+                        "price": 11.5 if symbol == "MAGA" else (650.0 if symbol == "BNB" else 155.0),
+                        "percentChange24h": 18.4 if symbol == "MAGA" else (6.2 if symbol == "BNB" else 5.4),
                         "volume24h": 1_900_000.0,
                         "liquidity": 780_000.0,
                     },
@@ -79,8 +88,8 @@ class RecordingRegistry:
             )
 
         if tool_name == "search_kol_mentions":
-            symbol = "SOL" if args.get("chain_id") == "CT_501" else "BNB"
-            handle = "ansem_demo" if symbol == "SOL" else "raoul_pal_demo"
+            symbol, name = self._symbol_name_for_args(args)
+            handle = "ansem_demo" if symbol == "SOL" else ("meme_marshal" if symbol == "MAGA" else "raoul_pal_demo")
             return make_agent_tool_result(
                 skill_name="internal_database_context",
                 tool_name="search_kol_mentions",
@@ -94,6 +103,7 @@ class RecordingRegistry:
                             "sentiment": "bullish",
                             "chain_id": args.get("chain_id"),
                             "token_symbol": symbol,
+                            "token_name": name,
                             "engagement": {
                                 "like_count": 120,
                                 "repost_count": 24,
@@ -107,7 +117,7 @@ class RecordingRegistry:
             )
 
         if tool_name == "get_latest_insight":
-            symbol = "SOL" if args.get("chain_id") == "CT_501" else "BNB"
+            symbol, name = self._symbol_name_for_args(args)
             return make_agent_tool_result(
                 skill_name="internal_database_context",
                 tool_name="get_latest_insight",
@@ -115,7 +125,7 @@ class RecordingRegistry:
                 input_args=args,
                 data={
                     "insight": {
-                        "summary": f"{symbol} has attention because local KOL context and market activity are aligned while risk stays manageable.",
+                        "summary": f"{name} has attention because local KOL context and market activity are aligned while risk stays manageable.",
                         "attention_score": 78.0,
                         "market_score": 74.0,
                         "kol_score": 72.0,
@@ -221,6 +231,13 @@ def _seed_agent_tokens(db_session) -> None:
                 name="Solana",
                 decimals=9,
             ),
+            Token(
+                chain_id="56",
+                contract_address="0xtrump000000000000000000000000000000000000",
+                symbol="MAGA",
+                name="Official Trump",
+                decimals=18,
+            ),
         ]
     )
     db_session.flush()
@@ -248,6 +265,17 @@ def _seed_agent_tokens(db_session) -> None:
                 label="Watchlist",
                 summary="SOL summary",
             ),
+            TokenInsight(
+                chain_id="56",
+                contract_address="0xtrump000000000000000000000000000000000000",
+                market_score=79.0,
+                kol_score=68.0,
+                smart_money_score=61.0,
+                safety_score=72.0,
+                final_score=74.0,
+                label="Watchlist",
+                summary="Official Trump summary",
+            ),
         ]
     )
     db_session.commit()
@@ -261,7 +289,7 @@ def _seed_agent_tokens(db_session) -> None:
         ("Why is BNB trending?", "56", {"query_token_info", "query_token_audit", "search_kol_mentions", "get_latest_insight"}),
         ("Which tokens look risky?", None, {"get_high_risk_tokens"}),
         ("Which KOLs mentioned SOL?", None, {"search_kol_mentions", "get_kol_summary"}),
-        ("Is the KOL hype backed by market data?", None, {"query_token_info", "query_token_audit", "search_kol_mentions", "get_latest_insight"}),
+        ("Is the KOL hype backed by market data?", None, {"crypto_market_rank", "get_trending_token_context"}),
     ],
 )
 def test_agent_orchestrator_uses_expected_tools(db_session, question, chain_id, expected_tools) -> None:
@@ -282,3 +310,87 @@ def test_agent_orchestrator_uses_expected_tools(db_session, question, chain_id, 
     assert expected_tools.issubset(called_tools)
     assert not re.search(r"\b(should buy|buy now|should sell|sell now)\b", response["answer"], re.IGNORECASE)
     assert not re.search(r"\b(guaranteed profit|risk-free|safe token)\b", response["answer"], re.IGNORECASE)
+
+
+def test_agent_orchestrator_infers_plain_english_token_reference(db_session) -> None:
+    _seed_agent_tokens(db_session)
+    registry = RecordingRegistry()
+    service = ChatAgentService(db_session, registry=registry)
+
+    response = service.answer_question(
+        message="How is that Donald Trump meme coin doing?",
+        chain_id="56",
+        debug=True,
+    )
+
+    called_tools = {tool_name for tool_name, _ in registry.calls}
+    assert {"query_token_info", "query_token_audit", "search_kol_mentions", "get_latest_insight"}.issubset(called_tools)
+    assert "highest-attention stored token" not in response["answer"].lower()
+    assert "official trump" in response["answer"].lower() or "maga" in response["answer"].lower()
+    assert response["disclaimer"]
+
+
+def test_agent_orchestrator_does_not_fallback_to_top_attention_for_unknown_token(db_session) -> None:
+    _seed_agent_tokens(db_session)
+    registry = RecordingRegistry()
+    service = ChatAgentService(db_session, registry=registry)
+
+    response = service.answer_question(
+        message="Why is that penguin coin trending?",
+        chain_id="56",
+        debug=True,
+    )
+
+    assert response["missing_data"] == ["specific_token"]
+    assert "highest-attention stored token" not in response["answer"].lower()
+    assert "could not confidently map" in response["answer"].lower()
+    assert registry.calls == []
+
+
+def test_agent_orchestrator_handles_parody_token_spelling(db_session) -> None:
+    db_session.add(
+        Token(
+            chain_id="CT_501",
+            contract_address="0xtromp000000000000000000000000000000000000",
+            symbol="DUNALD",
+            name="Dunald Tromp",
+            decimals=9,
+        )
+    )
+    db_session.flush()
+    db_session.add(
+        TokenInsight(
+            chain_id="CT_501",
+            contract_address="0xtromp000000000000000000000000000000000000",
+            market_score=71.0,
+            kol_score=64.0,
+            smart_money_score=58.0,
+            safety_score=69.0,
+            final_score=73.0,
+            label="Watchlist",
+            summary="Dunald Tromp summary",
+        )
+    )
+    db_session.commit()
+
+    class ParodyRegistry(RecordingRegistry):
+        @staticmethod
+        def _symbol_name_for_args(args: dict) -> tuple[str, str]:
+            contract_address = (args.get("contract_address") or "").lower()
+            if contract_address == "0xtromp000000000000000000000000000000000000":
+                return "DUNALD", "Dunald Tromp"
+            return RecordingRegistry._symbol_name_for_args(args)
+
+    registry = ParodyRegistry()
+    service = ChatAgentService(db_session, registry=registry)
+
+    response = service.answer_question(
+        message="How is that Donald Trump meme coin doing?",
+        chain_id="CT_501",
+        debug=True,
+    )
+
+    called_tools = {tool_name for tool_name, _ in registry.calls}
+    assert {"query_token_info", "query_token_audit", "search_kol_mentions", "get_latest_insight"}.issubset(called_tools)
+    assert "highest-attention stored token" not in response["answer"].lower()
+    assert "dunald tromp" in response["answer"].lower()

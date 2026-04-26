@@ -138,7 +138,7 @@ export function DashboardPage({
               <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-red-400" />
             </div>
             <div className="text-2xl sm:text-3xl font-bold text-red-400">{activeAlerts.length}</div>
-            <div className="text-xs text-red-300/60 mt-1">Requires attention</div>
+            <div className="text-xs text-red-300/60 mt-1">Requires immediate attention</div>
           </GlassCard>
         </div>
 
@@ -351,7 +351,7 @@ export function DashboardPage({
                 ))
               ) : (
                 <div className="p-4 text-sm text-white/70">
-                  No high-priority contract alerts are currently active in the local snapshot.
+                  No emergency rug-pull alerts are currently active.
                 </div>
               )}
             </GlassCard>

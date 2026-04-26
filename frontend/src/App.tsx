@@ -211,16 +211,6 @@ function AppRoutes() {
                 <Route path="/markets" element={<AllMarketsPage assets={snapshot.assets} />} />
                 <Route path="/kols" element={<AllKOLsPage kols={snapshot.kols} />} />
                 <Route path="/audit" element={<TokenAuditRoute />} />
-                <Route
-                  path="/api-docs"
-                  element={
-                    <ApiDocsPage
-                      agentMode={snapshot.agentMode}
-                      dataMode={snapshot.dataMode}
-                      openaiReady={snapshot.openaiReady}
-                    />
-                  }
-                />
                 <Route path="/kol/:handle" element={<KOLProfileRoute />} />
                 <Route path="/market/:chainId/:contractAddress" element={<AssetInsightsRoute />} />
                 <Route
@@ -229,6 +219,16 @@ function AppRoutes() {
                     <FullScreenState
                       title="Settings"
                       message="Settings are not part of the current demo build yet."
+                    />
+                  }
+                />
+                <Route
+                  path="/api-docs"
+                  element={
+                    <ApiDocsPage
+                      agentMode={snapshot.agentMode}
+                      dataMode={snapshot.dataMode}
+                      openaiReady={snapshot.openaiReady}
                     />
                   }
                 />

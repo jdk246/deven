@@ -44,6 +44,21 @@ export function ChatBot() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setIsOpen(false);
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen]);
+
   async function handleSend(prompt = inputValue) {
     const trimmed = prompt.trim();
     if (!trimmed) {
@@ -129,8 +144,8 @@ export function ChatBot() {
   }
 
   return (
-    <div className="fixed bottom-0 right-0 sm:bottom-6 sm:right-6 w-full h-full sm:w-[420px] lg:w-[480px] sm:h-[620px] z-50">
-      <GlassCard className="h-full flex flex-col">
+    <div className="fixed inset-3 sm:inset-auto sm:bottom-6 sm:right-6 sm:w-[420px] lg:w-[480px] sm:h-[620px] sm:max-h-[calc(100dvh-3rem)] z-50">
+      <GlassCard className="h-full overflow-hidden flex flex-col">
         <div className="p-4 border-b border-white/10 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center shadow-lg shadow-purple-500/50">
@@ -146,9 +161,13 @@ export function ChatBot() {
           </div>
           <button
             onClick={() => setIsOpen(false)}
-            className="text-white/60 hover:text-white transition-colors"
+            type="button"
+            aria-label="Close chatbot"
+            title="Close chatbot"
+            className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-2 text-sm font-medium text-white/85 transition-all hover:bg-white/20 hover:text-white"
           >
             <X className="w-5 h-5" />
+            <span>Close</span>
           </button>
         </div>
 
