@@ -36,6 +36,43 @@ SUPPORTED_CHAINS = {
 
 DEFAULT_JOBS = ("market", "audits", "smart_money")
 
+# Keep the demo grounded in Binance Skills-supported contracts rather than
+# inventing a separate market source. These are the chain-specific
+# representations we want to include alongside the trending feed.
+CURATED_MAJOR_TOKEN_WATCHLIST = {
+    "56": [
+        {
+            "contract_address": "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
+            "symbol_override": "BNB",
+            "name_override": "BNB",
+        },
+        {
+            "contract_address": "0x2170Ed0880ac9A755fd29B2688956BD959F933F8",
+            "symbol_override": "ETH",
+            "name_override": "Ethereum",
+        },
+        {
+            "contract_address": "0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c",
+            "symbol_override": "BTC",
+            "name_override": "Bitcoin",
+        },
+    ],
+    "CT_501": [
+        {
+            "contract_address": "So11111111111111111111111111111111111111112",
+            "symbol_override": "SOL",
+            "name_override": "Solana",
+        },
+    ],
+    "8453": [
+        {
+            "contract_address": "0x4200000000000000000000000000000000000006",
+            "symbol_override": "ETH",
+            "name_override": "Ethereum",
+        },
+    ],
+}
+
 
 def get_enabled_chain_ids() -> list[str]:
     settings = get_settings()
@@ -70,6 +107,10 @@ def build_chain_option(chain_id: str) -> dict[str, Any]:
         "enabled_by_default": bool(info["enabled_by_default"]),
         "enabled": enabled,
     }
+
+
+def get_curated_watchlist(chain_id: str) -> list[dict[str, str]]:
+    return [dict(item) for item in CURATED_MAJOR_TOKEN_WATCHLIST.get(chain_id, [])]
 
 
 class MarketIngestionService:
@@ -115,8 +156,11 @@ class MarketIngestionService:
                 "snapshots_created": 0,
                 "audits_created": 0,
                 "signals_upserted": 0,
+                "watchlist_targets": len(get_curated_watchlist(chain_id)),
+                "watchlist_upserted": 0,
                 "errors": [],
             }
+            processed_tokens: set[tuple[str, str]] = set()
 
             if "market" in selected_jobs or "audits" in selected_jobs:
                 await self._ingest_trending_chain(
@@ -124,6 +168,13 @@ class MarketIngestionService:
                     limit_per_chain=clamped_limit,
                     jobs=selected_jobs,
                     summary=chain_summary,
+                    processed_tokens=processed_tokens,
+                )
+                await self._ingest_curated_watchlist_chain(
+                    chain_id=chain_id,
+                    jobs=selected_jobs,
+                    summary=chain_summary,
+                    processed_tokens=processed_tokens,
                 )
 
             if "smart_money" in selected_jobs:
@@ -144,6 +195,7 @@ class MarketIngestionService:
         limit_per_chain: int,
         jobs: Sequence[str],
         summary: dict[str, Any],
+        processed_tokens: set[tuple[str, str]],
     ) -> None:
         try:
             trending_result = await self.binance_client.get_trending_token_rank(
@@ -165,67 +217,136 @@ class MarketIngestionService:
                 summary["errors"].append("Skipping token with missing contract address.")
                 continue
 
-            metadata_payload: dict[str, Any] = {}
-
-            if "market" in jobs:
-                try:
-                    metadata_result = await self.binance_client.get_token_metadata(
-                        effective_chain_id,
-                        contract_address,
-                    )
-                    metadata_payload = self._dict_data(metadata_result.data)
-                except Exception as exc:
-                    summary["errors"].append(
-                        f"Metadata fetch failed for {effective_chain_id}:{contract_address}: {exc}"
-                    )
-
-            self._upsert_token(
+            await self._ingest_token_contract(
                 chain_id=effective_chain_id,
                 contract_address=contract_address,
-                source_rows=[token_row, metadata_payload],
+                jobs=jobs,
+                summary=summary,
+                processed_tokens=processed_tokens,
+                source_rows=[token_row],
+                source_label="trending token",
             )
-            summary["tokens_upserted"] += 1
 
-            if "market" in jobs:
-                try:
-                    dynamic_result = await self.binance_client.get_token_dynamic_data(
-                        effective_chain_id,
-                        contract_address,
-                    )
-                    dynamic_payload = self._dict_data(dynamic_result.data)
-                    self._store_snapshot(
-                        chain_id=effective_chain_id,
+    async def _ingest_curated_watchlist_chain(
+        self,
+        *,
+        chain_id: str,
+        jobs: Sequence[str],
+        summary: dict[str, Any],
+        processed_tokens: set[tuple[str, str]],
+    ) -> None:
+        for watch_item in get_curated_watchlist(chain_id):
+            contract_address = self._string_value(watch_item.get("contract_address"))
+            if not contract_address:
+                continue
+            token_key = (chain_id, contract_address.lower())
+            override_rows = [
+                {
+                    "symbol": watch_item.get("symbol_override"),
+                    "name": watch_item.get("name_override"),
+                }
+            ]
+
+            if token_key in processed_tokens:
+                self._upsert_token(
+                    chain_id=chain_id,
+                    contract_address=contract_address,
+                    source_rows=override_rows,
+                )
+                self._commit_or_recover(summary)
+                summary["watchlist_upserted"] += 1
+                continue
+
+            ingested = await self._ingest_token_contract(
+                chain_id=chain_id,
+                contract_address=contract_address,
+                jobs=jobs,
+                summary=summary,
+                processed_tokens=processed_tokens,
+                source_rows=override_rows,
+                source_label=f"watchlist token {watch_item.get('symbol_override') or contract_address}",
+            )
+            if ingested:
+                summary["watchlist_upserted"] += 1
+
+    async def _ingest_token_contract(
+        self,
+        *,
+        chain_id: str,
+        contract_address: str,
+        jobs: Sequence[str],
+        summary: dict[str, Any],
+        processed_tokens: set[tuple[str, str]],
+        source_rows: Sequence[dict[str, Any]],
+        source_label: str,
+    ) -> bool:
+        token_key = (chain_id, contract_address.lower())
+        if token_key in processed_tokens:
+            return False
+
+        metadata_payload: dict[str, Any] = {}
+
+        if "market" in jobs:
+            try:
+                metadata_result = await self.binance_client.get_token_metadata(
+                    chain_id,
+                    contract_address,
+                )
+                metadata_payload = self._dict_data(metadata_result.data)
+            except Exception as exc:
+                summary["errors"].append(
+                    f"Metadata fetch failed for {source_label} {chain_id}:{contract_address}: {exc}"
+                )
+
+        self._upsert_token(
+            chain_id=chain_id,
+            contract_address=contract_address,
+            source_rows=[metadata_payload, *source_rows],
+        )
+        summary["tokens_upserted"] += 1
+
+        if "market" in jobs:
+            try:
+                dynamic_result = await self.binance_client.get_token_dynamic_data(
+                    chain_id,
+                    contract_address,
+                )
+                dynamic_payload = self._dict_data(dynamic_result.data)
+                self._store_snapshot(
+                    chain_id=chain_id,
+                    contract_address=contract_address,
+                    dynamic_data=dynamic_payload,
+                    raw_payload=dynamic_result.raw.get("data"),
+                )
+                summary["snapshots_created"] += 1
+            except Exception as exc:
+                summary["errors"].append(
+                    f"Dynamic market fetch failed for {source_label} {chain_id}:{contract_address}: {exc}"
+                )
+
+        if "audits" in jobs:
+            try:
+                audit_result = await self.binance_client.get_token_audit(
+                    chain_id,
+                    contract_address,
+                )
+                audit_payload = self._dict_data(audit_result.data)
+                if audit_payload:
+                    self._store_audit(
+                        chain_id=chain_id,
                         contract_address=contract_address,
-                        dynamic_data=dynamic_payload,
-                        raw_payload=dynamic_result.raw.get("data"),
+                        audit_data=audit_payload,
+                        raw_payload=audit_result.raw.get("data"),
                     )
-                    summary["snapshots_created"] += 1
-                except Exception as exc:
-                    summary["errors"].append(
-                        f"Dynamic market fetch failed for {effective_chain_id}:{contract_address}: {exc}"
-                    )
+                    summary["audits_created"] += 1
+            except Exception as exc:
+                summary["errors"].append(
+                    f"Audit fetch failed for {source_label} {chain_id}:{contract_address}: {exc}"
+                )
 
-            if "audits" in jobs:
-                try:
-                    audit_result = await self.binance_client.get_token_audit(
-                        effective_chain_id,
-                        contract_address,
-                    )
-                    audit_payload = self._dict_data(audit_result.data)
-                    if audit_payload:
-                        self._store_audit(
-                            chain_id=effective_chain_id,
-                            contract_address=contract_address,
-                            audit_data=audit_payload,
-                            raw_payload=audit_result.raw.get("data"),
-                        )
-                        summary["audits_created"] += 1
-                except Exception as exc:
-                    summary["errors"].append(
-                        f"Audit fetch failed for {effective_chain_id}:{contract_address}: {exc}"
-                    )
-
-            self._commit_or_recover(summary)
+        self._commit_or_recover(summary)
+        processed_tokens.add(token_key)
+        return True
 
     async def _ingest_smart_money_chain(
         self,
