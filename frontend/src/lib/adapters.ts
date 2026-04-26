@@ -264,9 +264,7 @@ function isPlaceholderMarketContainer(
     trending?.volume_24h,
     trending?.liquidity,
     trending?.holders,
-    insight?.attention_score,
-    insight?.summary,
-  ].some((value) => value !== null && value !== undefined && value !== "");
+  ].some((value) => value !== null && value !== undefined);
 
   return !hasIdentity && !hasMarketContext;
 }
