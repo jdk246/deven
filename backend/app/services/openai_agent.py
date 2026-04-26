@@ -80,13 +80,15 @@ class OpenAIAgentService(ChatAgentService):
 
         request_id = f"openai-{uuid.uuid4().hex}"
         started_at = time.perf_counter()
-        normalized_intent = f"openai:{self._classify_intent(cleaned_message, token_context=token_context)}"
+        classified_intent = self._classify_intent(cleaned_message, token_context=token_context)
+        normalized_intent = f"openai:{classified_intent}"
 
         try:
             answer_text, tool_calls = self._run_openai_tool_loop(
                 message=cleaned_message,
                 chain_id=chain_id,
                 token_context=token_context,
+                intent=classified_intent,
             )
 
             if not tool_calls:
@@ -132,9 +134,10 @@ class OpenAIAgentService(ChatAgentService):
         message: str,
         chain_id: str | None,
         token_context: dict[str, Any] | None,
+        intent: str,
     ) -> tuple[str, list[ToolCallRecord]]:
         client = self._client()
-        instructions = self._build_instructions()
+        instructions = self._build_instructions(intent=intent)
         input_items: list[Any] = [
             {
                 "role": "user",
@@ -142,10 +145,11 @@ class OpenAIAgentService(ChatAgentService):
                     message=message,
                     chain_id=chain_id,
                     token_context=token_context,
+                    intent=intent,
                 ),
             }
         ]
-        tools = self._build_openai_tools()
+        tools = self._build_openai_tools(intent=intent)
         tool_calls: list[ToolCallRecord] = []
         started_at = time.perf_counter()
 
@@ -272,9 +276,12 @@ class OpenAIAgentService(ChatAgentService):
                     missing.append(record.tool_name)
         return list(dict.fromkeys(missing))
 
-    def _build_openai_tools(self) -> list[dict[str, Any]]:
+    def _build_openai_tools(self, *, intent: str) -> list[dict[str, Any]]:
         definitions: list[dict[str, Any]] = []
+        allowed_names = self._candidate_tool_names_for_intent(intent)
         for descriptor in self.registry.list_agent_tools():
+            if allowed_names and descriptor["name"] not in allowed_names:
+                continue
             registered = self.registry.get_tool(descriptor["name"])
             definitions.append(
                 {
@@ -331,12 +338,13 @@ class OpenAIAgentService(ChatAgentService):
 
         return {"type": "string"}
 
-    def _build_instructions(self) -> str:
+    def _build_instructions(self, *, intent: str) -> str:
         return (
             "You are the optional OpenAI mode for the trust-trace market-intelligence backend. "
             "Use only the provided function tools to answer the user. "
             "You must call at least one tool before giving a final answer. "
             "Do not invent market, audit, smart-money, or KOL data. "
+            f"The backend classifier thinks this request is closest to the '{intent}' workflow, so start there unless the tool data clearly points elsewhere. "
             "For broad ranking or screening questions, prefer aggregate context tools such as "
             "get_trending_token_context, crypto_market_rank, get_high_risk_tokens, search_kol_mentions, "
             "and trading_signal before you consider token-specific drill-down tools. "
@@ -357,9 +365,11 @@ class OpenAIAgentService(ChatAgentService):
         message: str,
         chain_id: str | None,
         token_context: dict[str, Any] | None,
+        intent: str,
     ) -> str:
         payload = {
             "message": message,
+            "intent_hint": intent,
             "chain_id": chain_id,
             "token_context": token_context,
             "kol_data_mode": self.settings.kol_data_mode,
@@ -408,6 +418,90 @@ class OpenAIAgentService(ChatAgentService):
             max_retries=self._openai_max_retries(),
         )
         return self.client
+
+    def _candidate_tool_names_for_intent(self, intent: str) -> set[str]:
+        intent_tools: dict[str, set[str]] = {
+            "trending_tokens": {
+                "crypto_market_rank",
+                "get_trending_token_context",
+                "trading_signal",
+                "get_data_mode_status",
+            },
+            "token_screening": {
+                "get_trending_token_context",
+                "crypto_market_rank",
+                "trading_signal",
+                "get_high_risk_tokens",
+                "search_kol_mentions",
+                "get_data_mode_status",
+            },
+            "token_explanation": {
+                "query_token_info",
+                "query_token_audit",
+                "search_kol_mentions",
+                "get_latest_insight",
+                "get_token_context",
+                "get_data_mode_status",
+            },
+            "kol_sentiment": {
+                "search_kol_mentions",
+                "get_kol_summary",
+                "get_data_mode_status",
+            },
+            "kol_rankings": {
+                "rank_kols_by_track_record",
+                "get_kol_track_record",
+                "get_kol_call_examples",
+                "get_kol_summary",
+                "get_data_mode_status",
+            },
+            "kol_track_record": {
+                "get_kol_track_record",
+                "get_kol_call_examples",
+                "get_kol_summary",
+                "get_data_mode_status",
+            },
+            "kol_performance_methodology": {
+                "rank_kols_by_track_record",
+                "get_kol_track_record",
+                "get_kol_call_examples",
+                "get_data_mode_status",
+            },
+            "kol_call_examples": {
+                "get_kol_call_examples",
+                "get_kol_track_record",
+                "get_kol_summary",
+                "get_data_mode_status",
+            },
+            "high_risk_tokens": {
+                "get_high_risk_tokens",
+                "get_trending_token_context",
+                "query_token_audit",
+                "get_data_mode_status",
+            },
+            "smart_money_activity": {
+                "trading_signal",
+                "crypto_market_rank",
+                "get_trending_token_context",
+                "get_token_context",
+                "query_token_info",
+                "get_data_mode_status",
+            },
+            "compare_tokens": {
+                "get_latest_insight",
+                "get_token_context",
+                "query_token_info",
+                "query_token_audit",
+                "search_kol_mentions",
+                "get_data_mode_status",
+            },
+            "general_help": {
+                "get_data_mode_status",
+                "get_trending_token_context",
+                "crypto_market_rank",
+            },
+        }
+        return intent_tools.get(intent, {"get_data_mode_status", "get_trending_token_context", "crypto_market_rank"})
 
     def _responses_client(self, *, client: Any, timeout_seconds: float) -> Any:
         with_options = getattr(client, "with_options", None)
