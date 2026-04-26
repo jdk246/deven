@@ -1,4 +1,4 @@
-import { apiBaseUrl } from "../lib/env";
+import { apiFetchBaseUrl } from "../lib/env";
 
 export type BackendHealth = {
   status: "ok";
@@ -164,7 +164,7 @@ export type AdminRefreshResponse = {
 };
 
 async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${apiBaseUrl}${path}`, init);
+  const response = await fetch(`${apiFetchBaseUrl}${path}`, init);
 
   if (!response.ok) {
     const details = await response.text().catch(() => "");

@@ -1,4 +1,13 @@
-import { apiBaseUrl } from "../lib/env";
+import { apiFetchBaseUrl } from "../lib/env";
+
+const REQUEST_TIMEOUT_MS = 12000;
+const MAX_FETCH_ATTEMPTS = 3;
+const RETRY_DELAY_MS = 350;
+
+type FetchJsonOptions = RequestInit & {
+  timeoutMs?: number;
+  maxAttempts?: number;
+};
 
 export type AgentHealthResponse = {
   status: "ok";
@@ -456,19 +465,66 @@ export type AgentExamplesResponse = {
   items: AgentExampleItemResponse[];
 };
 
-async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${apiBaseUrl}${path}`, init);
+async function fetchJson<T>(path: string, init?: FetchJsonOptions): Promise<T> {
+  let lastError: Error | null = null;
+  const timeoutMs = init?.timeoutMs ?? REQUEST_TIMEOUT_MS;
+  const maxAttempts = init?.maxAttempts ?? MAX_FETCH_ATTEMPTS;
 
-  if (!response.ok) {
-    const details = await response.text().catch(() => "");
-    throw new Error(
-      `${init?.method ?? "GET"} ${path} failed with status ${response.status}${
-        details ? `: ${details.slice(0, 220)}` : ""
-      }`,
-    );
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const controller = new AbortController();
+    const timeoutHandle = window.setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const response = await fetch(`${apiFetchBaseUrl}${path}`, {
+        ...init,
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        const details = await response.text().catch(() => "");
+        throw new Error(
+          `${init?.method ?? "GET"} ${path} failed with status ${response.status}${
+            details ? `: ${details.slice(0, 220)}` : ""
+          }`,
+        );
+      }
+
+      return response.json() as Promise<T>;
+    } catch (caughtError) {
+      const isTimeout =
+        caughtError instanceof DOMException && caughtError.name === "AbortError";
+      const message =
+        caughtError instanceof Error ? caughtError.message : "Unexpected fetch error.";
+
+      lastError = new Error(
+        isTimeout
+          ? `${init?.method ?? "GET"} ${path} timed out after ${timeoutMs / 1000}s`
+          : message,
+      );
+
+      const shouldRetry =
+        attempt < maxAttempts &&
+        (isTimeout ||
+          caughtError instanceof TypeError ||
+          (caughtError instanceof Error && /failed to fetch/i.test(caughtError.message)));
+
+      if (!shouldRetry) {
+        throw lastError;
+      }
+
+      await delay(RETRY_DELAY_MS * attempt);
+    } finally {
+      window.clearTimeout(timeoutHandle);
+    }
   }
 
-  return response.json() as Promise<T>;
+  throw lastError ?? new Error(`GET ${path} failed.`);
+}
+
+function delay(ms: number) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
 }
 
 export function fetchAgentHealth(): Promise<AgentHealthResponse> {
@@ -540,6 +596,8 @@ export function queryAgent(payload: AgentQueryRequest): Promise<AgentQueryRespon
       "Content-Type": "application/json",
     },
     body: JSON.stringify(payload),
+    timeoutMs: 35000,
+    maxAttempts: 1,
   });
 }
 

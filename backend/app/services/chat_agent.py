@@ -431,7 +431,12 @@ class ChatAgentService:
         )
 
         matching_items = [analysis for analysis in analyses if int(analysis["matched_criteria_count"]) >= minimum_hits]
-        shortlisted = (matching_items or analyses)[:3]
+        shortlisted = list((matching_items or analyses)[:3])
+        used_closest_matches = not bool(matching_items)
+        if matching_items and len(shortlisted) < min(3, len(analyses)):
+            remainder = [analysis for analysis in analyses if analysis not in shortlisted]
+            shortlisted.extend(remainder[: 3 - len(shortlisted)])
+            used_closest_matches = True
 
         if not shortlisted:
             return self._result_payload(
@@ -441,12 +446,29 @@ class ChatAgentService:
                 tool_calls=tool_calls,
             )
 
-        if matching_items:
+        if matching_items and not used_closest_matches:
             lead = (
                 f"Within {requested_chain_name}, the strongest current matches for that screen are "
                 f"{self._format_list([analysis['label'] for analysis in shortlisted])}."
             )
             missing_data: list[str] = []
+        elif matching_items:
+            exact_labels = [analysis["label"] for analysis in matching_items[: min(3, len(matching_items))]]
+            fallback_labels = [
+                analysis["label"]
+                for analysis in shortlisted
+                if analysis["label"] not in set(exact_labels)
+            ]
+            lead = (
+                f"Within {requested_chain_name}, the strongest exact matches for that screen are "
+                f"{self._format_list(exact_labels)}."
+            )
+            if fallback_labels:
+                lead += (
+                    f" To round out the top set, the closest remaining fit is "
+                    f"{self._format_list(fallback_labels)}."
+                )
+            missing_data = ["strict_screen_matches"]
         else:
             lead = (
                 f"I do not see three perfect matches for all of those filters in {requested_chain_name} right now, "
@@ -466,7 +488,7 @@ class ChatAgentService:
                 chain_name=requested_chain_name,
                 requested_criteria=requested_criteria,
                 shortlisted=shortlisted,
-                used_fallback=not bool(matching_items),
+                used_fallback=used_closest_matches,
             ),
         ]
         return self._result_payload(

@@ -61,3 +61,32 @@ def test_openai_agent_builds_strict_tool_schemas_with_all_properties_required(db
         parameters = tool["parameters"]
         assert parameters["type"] == "object"
         assert sorted(parameters["required"]) == sorted(parameters["properties"].keys())
+
+
+def test_openai_agent_applies_bounded_timeout_and_no_retry_overrides(db_session) -> None:
+    class FakeClient:
+        def __init__(self) -> None:
+            self.calls: list[dict[str, float | int]] = []
+
+        def with_options(self, **kwargs):
+            self.calls.append(kwargs)
+            return self
+
+    settings = SimpleNamespace(
+        openai_api_key="test-key",
+        openai_model="gpt-5-mini",
+        openai_request_timeout_seconds=12.0,
+        openai_max_total_seconds=18.0,
+        openai_max_tool_rounds=3,
+        openai_max_retries=0,
+        kol_data_mode="seed",
+        enabled_chains=["56", "CT_501"],
+        agent_mode="openai",
+    )
+    fake_client = FakeClient()
+    service = OpenAIAgentService(db_session, settings=settings, client=fake_client)
+
+    configured = service._responses_client(client=fake_client, timeout_seconds=7.5)
+
+    assert configured is fake_client
+    assert fake_client.calls == [{"timeout": 7.5, "max_retries": 0}]

@@ -1,11 +1,11 @@
-import { apiBaseUrl } from "../lib/env";
+import { apiFetchBaseUrl } from "../lib/env";
 
 export type HealthResponse = {
   status: string;
 };
 
 export async function fetchHealth(): Promise<HealthResponse> {
-  const response = await fetch(`${apiBaseUrl}/health`);
+  const response = await fetch(`${apiFetchBaseUrl}/health`);
 
   if (!response.ok) {
     throw new Error(`Backend request failed with status ${response.status}`);

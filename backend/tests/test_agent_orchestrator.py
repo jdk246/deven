@@ -528,5 +528,6 @@ def test_agent_orchestrator_handles_multi_factor_token_screening(db_session) -> 
     assert "solana" in response["answer"].lower()
     assert "solana (sol) on sol" in response["answer"].lower()
     assert "bonk on sol" in response["answer"].lower()
+    assert "dogwifhat (wif) on sol" in response["answer"].lower()
     assert "tradeoff" in response["answer"].lower()
     assert response["disclaimer"]

@@ -1,3 +1,6 @@
+const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim() || "";
+const useDevProxy = import.meta.env.DEV && !configuredApiBaseUrl;
+
 const defaultApiBaseUrl =
   typeof window !== "undefined" && window.location.hostname === "127.0.0.1"
     ? "http://127.0.0.1:8000"
@@ -32,5 +35,7 @@ function normalizeLoopbackBaseUrl(rawValue: string) {
 }
 
 export const apiBaseUrl = normalizeLoopbackBaseUrl(
-  import.meta.env.VITE_API_BASE_URL?.trim() || defaultApiBaseUrl,
+  configuredApiBaseUrl || defaultApiBaseUrl,
 );
+
+export const apiFetchBaseUrl = useDevProxy ? "" : apiBaseUrl;

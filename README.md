@@ -70,7 +70,11 @@ Optional OpenAI settings:
 
 - `AGENT_MODE=openai`
 - `OPENAI_API_KEY=...`
-- `OPENAI_MODEL=gpt-5`
+- `OPENAI_MODEL=gpt-5-mini`
+- `OPENAI_REQUEST_TIMEOUT_SECONDS=12`
+- `OPENAI_MAX_TOTAL_SECONDS=18`
+- `OPENAI_MAX_TOOL_ROUNDS=3`
+- `OPENAI_MAX_RETRIES=0`
 
 Notes:
 
@@ -189,7 +193,11 @@ If you want the OpenAI agent in the middle of the tool loop:
 ```env
 AGENT_MODE=openai
 OPENAI_API_KEY=your_key_here
-OPENAI_MODEL=gpt-5
+OPENAI_MODEL=gpt-5-mini
+OPENAI_REQUEST_TIMEOUT_SECONDS=12
+OPENAI_MAX_TOTAL_SECONDS=18
+OPENAI_MAX_TOOL_ROUNDS=3
+OPENAI_MAX_RETRIES=0
 ```
 
 3. Restart the backend
@@ -210,6 +218,7 @@ How the agent works:
 - deterministic mode: backend classifies intent and runs predefined tool plans
 - OpenAI mode: model receives the user prompt and chooses from registered tools through the backend tool registry
 - Binance access still stays behind `BinanceSkillsClient` and the tool abstraction
+- OpenAI mode now uses a lighter default model plus a bounded request timeout, capped tool rounds, and a total time budget so slow tool-planning runs fall back faster
 
 ## 8. Useful Local API Checks
 
