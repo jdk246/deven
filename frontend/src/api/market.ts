@@ -1,4 +1,4 @@
-import { apiBaseUrl } from "../lib/env";
+import { apiFetchBaseUrl } from "../lib/env";
 
 export type ChainOption = {
   chain_id: string;
@@ -81,7 +81,7 @@ export async function fetchTokens(chainId?: string): Promise<TokenListResponse> 
     params.set("chain_id", chainId);
   }
 
-  const url = `${apiBaseUrl}/api/tokens${params.toString() ? `?${params.toString()}` : ""}`;
+  const url = `${apiFetchBaseUrl}/api/tokens${params.toString() ? `?${params.toString()}` : ""}`;
   const response = await fetch(url);
 
   if (!response.ok) {
@@ -92,7 +92,7 @@ export async function fetchTokens(chainId?: string): Promise<TokenListResponse> 
 }
 
 export async function refreshMarket(payload: RefreshRequest = {}): Promise<RefreshResponse> {
-  const response = await fetch(`${apiBaseUrl}/api/admin/refresh`, {
+  const response = await fetch(`${apiFetchBaseUrl}/api/admin/refresh`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

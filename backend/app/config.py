@@ -37,7 +37,17 @@ class Settings(BaseSettings):
     binance_max_retries: int = Field(default=2, alias="BINANCE_MAX_RETRIES")
     agent_mode: str = Field(default="deterministic", alias="AGENT_MODE")
     openai_api_key: str | None = Field(default=None, alias="OPENAI_API_KEY")
-    openai_model: str = Field(default="gpt-5", alias="OPENAI_MODEL")
+    openai_model: str = Field(default="gpt-5-mini", alias="OPENAI_MODEL")
+    openai_request_timeout_seconds: float = Field(
+        default=12.0,
+        alias="OPENAI_REQUEST_TIMEOUT_SECONDS",
+    )
+    openai_max_total_seconds: float = Field(
+        default=18.0,
+        alias="OPENAI_MAX_TOTAL_SECONDS",
+    )
+    openai_max_tool_rounds: int = Field(default=3, alias="OPENAI_MAX_TOOL_ROUNDS")
+    openai_max_retries: int = Field(default=0, alias="OPENAI_MAX_RETRIES")
     kol_data_mode: str = Field(default="seed", alias="KOL_DATA_MODE")
     x_bearer_token: str | None = Field(default=None, alias="X_BEARER_TOKEN")
     enabled_chains: Annotated[list[str], NoDecode] = Field(

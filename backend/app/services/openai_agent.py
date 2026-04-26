@@ -31,7 +31,10 @@ FORBIDDEN_LANGUAGE_PATTERNS = [
 
 
 class OpenAIAgentService(ChatAgentService):
-    MAX_TOOL_ROUNDS = 4
+    DEFAULT_MAX_TOOL_ROUNDS = 3
+    DEFAULT_REQUEST_TIMEOUT_SECONDS = 12.0
+    DEFAULT_MAX_TOTAL_SECONDS = 18.0
+    DEFAULT_MAX_RETRIES = 0
 
     def __init__(
         self,
@@ -144,9 +147,17 @@ class OpenAIAgentService(ChatAgentService):
         ]
         tools = self._build_openai_tools()
         tool_calls: list[ToolCallRecord] = []
+        started_at = time.perf_counter()
 
-        for _round in range(self.MAX_TOOL_ROUNDS):
-            response = client.responses.create(
+        for _round in range(self._openai_max_tool_rounds()):
+            remaining_budget = self._remaining_budget_seconds(started_at)
+            if remaining_budget <= 0.0:
+                raise TimeoutError("OpenAI agent exceeded the maximum total time budget.")
+
+            response = self._responses_client(
+                client=client,
+                timeout_seconds=min(self._openai_request_timeout_seconds(), remaining_budget),
+            ).responses.create(
                 model=self.settings.openai_model,
                 instructions=instructions,
                 tools=tools,
@@ -391,8 +402,56 @@ class OpenAIAgentService(ChatAgentService):
             raise RuntimeError("OpenAI package is not installed.")
         if not self.settings.openai_api_key:
             raise RuntimeError("OPENAI_API_KEY is not configured.")
-        self.client = OpenAI(api_key=self.settings.openai_api_key)
+        self.client = OpenAI(
+            api_key=self.settings.openai_api_key,
+            timeout=self._openai_request_timeout_seconds(),
+            max_retries=self._openai_max_retries(),
+        )
         return self.client
+
+    def _responses_client(self, *, client: Any, timeout_seconds: float) -> Any:
+        with_options = getattr(client, "with_options", None)
+        if callable(with_options):
+            return client.with_options(
+                timeout=max(1.0, float(timeout_seconds)),
+                max_retries=self._openai_max_retries(),
+            )
+        return client
+
+    def _openai_request_timeout_seconds(self) -> float:
+        raw_value = getattr(
+            self.settings,
+            "openai_request_timeout_seconds",
+            self.DEFAULT_REQUEST_TIMEOUT_SECONDS,
+        )
+        return max(1.0, float(raw_value))
+
+    def _openai_max_total_seconds(self) -> float:
+        raw_value = getattr(
+            self.settings,
+            "openai_max_total_seconds",
+            self.DEFAULT_MAX_TOTAL_SECONDS,
+        )
+        return max(self._openai_request_timeout_seconds(), float(raw_value))
+
+    def _openai_max_tool_rounds(self) -> int:
+        raw_value = getattr(
+            self.settings,
+            "openai_max_tool_rounds",
+            self.DEFAULT_MAX_TOOL_ROUNDS,
+        )
+        return max(1, int(raw_value))
+
+    def _openai_max_retries(self) -> int:
+        raw_value = getattr(
+            self.settings,
+            "openai_max_retries",
+            self.DEFAULT_MAX_RETRIES,
+        )
+        return max(0, int(raw_value))
+
+    def _remaining_budget_seconds(self, started_at: float) -> float:
+        return self._openai_max_total_seconds() - (time.perf_counter() - started_at)
 
     def _fallback(self) -> ChatAgentService:
         return ChatAgentService(self.db, registry=self.registry)
