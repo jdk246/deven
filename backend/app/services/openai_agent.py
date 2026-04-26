@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import inspect
 import json
 import re
 import time
@@ -282,12 +281,10 @@ class OpenAIAgentService(ChatAgentService):
             name: self._descriptor_to_json_schema(descriptor)
             for name, descriptor in tool.input_schema.items()
         }
-        signature = inspect.signature(tool.callable)
-        required = [
-            name
-            for name, parameter in signature.parameters.items()
-            if name in properties and parameter.default is inspect._empty
-        ]
+        # OpenAI strict function tools currently require every declared property
+        # to also appear in the required array. Optional inputs should therefore
+        # be represented as nullable schemas rather than omitted from required.
+        required = list(properties.keys())
         return {
             "type": "object",
             "properties": properties,
@@ -329,6 +326,13 @@ class OpenAIAgentService(ChatAgentService):
             "Use only the provided function tools to answer the user. "
             "You must call at least one tool before giving a final answer. "
             "Do not invent market, audit, smart-money, or KOL data. "
+            "For broad ranking or screening questions, prefer aggregate context tools such as "
+            "get_trending_token_context, crypto_market_rank, get_high_risk_tokens, search_kol_mentions, "
+            "and trading_signal before you consider token-specific drill-down tools. "
+            "Only call token-specific tools such as query_token_info or query_token_audit after you have "
+            "identified a concrete token contract from earlier tool output. "
+            "Do not call the same tool with the same arguments more than once unless the user explicitly asks you to re-check. "
+            "Once you have enough evidence to rank, compare, or summarize, stop calling tools and answer directly. "
             "If the user refers to a token by nickname or plain-English description, make a careful best-effort inference from the available tool data and say clearly when that inference is tentative. "
             "When you identify a token, use the full token name plus ticker on first mention when available, for example 'OFFICIAL TRUMP (TRUMP)'. "
             "If a tool returns missing or empty data, say that clearly instead of guessing. "

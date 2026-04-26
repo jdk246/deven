@@ -42,3 +42,22 @@ def test_openai_agent_falls_back_to_deterministic_when_not_ready(db_session) -> 
     assert set(response) == {"answer", "evidence_used", "missing_data", "tool_trace", "disclaimer"}
     assert response["answer"]
     assert response["disclaimer"]
+
+
+def test_openai_agent_builds_strict_tool_schemas_with_all_properties_required(db_session) -> None:
+    settings = SimpleNamespace(
+        openai_api_key="test-key",
+        openai_model="gpt-5",
+        kol_data_mode="seed",
+        enabled_chains=["56", "CT_501"],
+        agent_mode="openai",
+    )
+    service = OpenAIAgentService(db_session, settings=settings)
+
+    tools = service._build_openai_tools()
+
+    assert tools
+    for tool in tools:
+        parameters = tool["parameters"]
+        assert parameters["type"] == "object"
+        assert sorted(parameters["required"]) == sorted(parameters["properties"].keys())

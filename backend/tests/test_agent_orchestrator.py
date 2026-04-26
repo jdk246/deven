@@ -434,3 +434,99 @@ def test_agent_orchestrator_rewrites_ticker_only_summary_with_full_token_name(db
 
     assert "official trump (maga) on bsc falls in the watchlist range" in response["answer"].lower()
     assert " maga falls in the watchlist range" not in response["answer"].lower()
+
+
+def test_agent_orchestrator_handles_multi_factor_token_screening(db_session) -> None:
+    _seed_agent_tokens(db_session)
+
+    class ScreeningRegistry(RecordingRegistry):
+        async def call_tool(self, tool_name: str, input_args: dict | None = None):
+            args = input_args or {}
+            if tool_name == "get_trending_token_context":
+                self.calls.append((tool_name, dict(args)))
+                return make_agent_tool_result(
+                    skill_name="internal_database_context",
+                    tool_name="get_trending_token_context",
+                    source="internal_context_db",
+                    input_args=args,
+                    data={
+                        "items": [
+                            {
+                                "chain_id": "CT_501",
+                                "chain_name": "Solana",
+                                "chain_short_name": "SOL",
+                                "contract_address": "So11111111111111111111111111111111111111112",
+                                "symbol": "SOL",
+                                "name": "Solana",
+                                "attention_score": 76.0,
+                                "safety_score": 79.0,
+                                "risk_level_enum": "LOW",
+                                "liquidity": 1_250_000.0,
+                                "kol_mention_count": 4,
+                                "bullish_mentions": 3,
+                                "bearish_mentions": 0,
+                                "smart_money_signal_count": 2,
+                                "positive_signal_count": 2,
+                            },
+                            {
+                                "chain_id": "CT_501",
+                                "chain_name": "Solana",
+                                "chain_short_name": "SOL",
+                                "contract_address": "So22222222222222222222222222222222222222222",
+                                "symbol": "BONK",
+                                "name": "Bonk",
+                                "attention_score": 68.0,
+                                "safety_score": 74.0,
+                                "risk_level_enum": "LOW",
+                                "liquidity": 620_000.0,
+                                "kol_mention_count": 3,
+                                "bullish_mentions": 2,
+                                "bearish_mentions": 1,
+                                "smart_money_signal_count": 1,
+                                "positive_signal_count": 1,
+                            },
+                            {
+                                "chain_id": "CT_501",
+                                "chain_name": "Solana",
+                                "chain_short_name": "SOL",
+                                "contract_address": "So33333333333333333333333333333333333333333",
+                                "symbol": "WIF",
+                                "name": "dogwifhat",
+                                "attention_score": 64.0,
+                                "safety_score": 63.0,
+                                "risk_level_enum": "MEDIUM",
+                                "liquidity": 540_000.0,
+                                "kol_mention_count": 5,
+                                "bullish_mentions": 4,
+                                "bearish_mentions": 1,
+                                "smart_money_signal_count": 3,
+                                "positive_signal_count": 2,
+                            },
+                        ],
+                        "match_count": 3,
+                        "data_mode": "seed",
+                    },
+                )
+
+            return await super().call_tool(tool_name, input_args)
+
+    registry = ScreeningRegistry()
+    service = ChatAgentService(db_session, registry=registry)
+
+    response = service.answer_question(
+        message=(
+            "Among the tokens currently getting attention on Solana, which ones have "
+            "positive KOL sentiment, decent liquidity, low audit risk, and some smart-money support? "
+            "Rank the top 3 and explain the tradeoffs."
+        ),
+        debug=True,
+    )
+
+    called_tools = [tool_name for tool_name, _ in registry.calls]
+    assert "get_trending_token_context" in called_tools
+    assert "get_high_risk_tokens" not in called_tools
+    assert "solana" in response["answer"].lower()
+    assert "solana (sol) on sol" in response["answer"].lower()
+    assert "bonk on sol" in response["answer"].lower()
+    assert "tradeoff" in response["answer"].lower()
+    assert response["disclaimer"]
