@@ -109,6 +109,7 @@ What this does:
 - recreates tables if `--reset-db` is used
 - loads seeded KOL profiles and posts
 - ingests Binance-backed market/audit/smart-money data for enabled chains
+- adds a small Binance-backed majors watchlist alongside trending tokens so core assets like BNB, BTC, ETH, and SOL show up in the local demo
 - generates token insights
 - computes KOL historical alignment / track record scores
 - runs backend validation
@@ -336,6 +337,7 @@ That script exercises the public agent API with demo prompts, including KOL rank
 Working locally today:
 
 - multi-chain tracked token ingestion for BSC + Solana by default
+- Binance-backed trending ingestion plus a small curated majors watchlist
 - token snapshots, audits, smart-money signals
 - seeded KOL pipeline
 - token mention extraction and mapping
