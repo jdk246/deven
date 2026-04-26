@@ -28,6 +28,13 @@ type SortOption =
   | "change_asc"
   | "name_asc";
 
+const QUICK_SORT_OPTIONS: Array<{ value: SortOption; label: string }> = [
+  { value: "attention_desc", label: "Attention" },
+  { value: "market_cap_desc", label: "Market Cap" },
+  { value: "volume_desc", label: "Volume" },
+  { value: "change_desc", label: "Top Gainers" },
+];
+
 function compareNullableNumber(left: number | null | undefined, right: number | null | undefined) {
   return (right ?? Number.NEGATIVE_INFINITY) - (left ?? Number.NEGATIVE_INFINITY);
 }
@@ -264,6 +271,31 @@ export function AllMarketsPage({ assets }: AllMarketsPageProps) {
                 <SelectItem value="unscored">Unscored</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <span className="text-[11px] uppercase tracking-wide text-white/45">
+              Quick sort
+            </span>
+            {QUICK_SORT_OPTIONS.map((option) => {
+              const isActive = sortBy === option.value;
+              return (
+                <Button
+                  key={option.value}
+                  type="button"
+                  size="sm"
+                  variant={isActive ? "secondary" : "ghost"}
+                  className={
+                    isActive
+                      ? "bg-purple-500/20 text-purple-100 hover:bg-purple-500/25"
+                      : "bg-white/5 text-white/70 hover:bg-white/10 hover:text-white"
+                  }
+                  onClick={() => setSortBy(option.value)}
+                >
+                  {option.label}
+                </Button>
+              );
+            })}
           </div>
 
           <div className="mt-3 text-xs text-white/45">
